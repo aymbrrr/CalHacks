@@ -58,6 +58,8 @@ Fallback batch:
 
 Build items from a scripted Redundant run where agents intentionally repeat work.
 
+For real-use collection before the runtime is ready, use the [labelable data query add-on](labelable-data-query-addon.md).
+
 Include five buckets:
 
 - `safe_reuse`: same task, same public information, no side effect.
