@@ -52,7 +52,7 @@ Every decision is logged with cost, latency, confidence, source call, and explan
    - semantic embedding
    - cacheability class
    - state/freshness fingerprint
-4. Redis checks exact cache first, then vector similarity.
+4. Redis LangCache checks exact cache first, then semantic similarity.
 5. Terac-trained verifier approves or rejects semantic reuse candidates.
 6. If reuse is unsafe but prompt is bloated, Token Company compression is applied.
 7. Executed/reused calls are emitted to Redis Streams for the live UI and optionally mirrored to Sentry.
@@ -205,8 +205,8 @@ Build:
 - `redundant.llm()` wrapper around Anthropic calls.
 - `redundant.tool()` wrapper around demo tools.
 - Normalization for tool args and prompt messages.
-- Exact cache using deterministic hash.
-- Redis vector search for semantic candidates.
+- Redis LangCache exact and semantic search for reusable LLM/tool calls.
+- Deterministic local LangCache-compatible fallback for offline demo/test runs.
 - Cost/latency estimator.
 - Decision engine for exact reuse, semantic reuse, stale miss, unsafe miss, side-effect warning.
 
@@ -430,11 +430,11 @@ Acceptance:
 ## Success Criteria
 - Core demo runs end-to-end in under 5 minutes.
 - Band collaboration is visible and material.
-- Redis is necessary to the core architecture.
+- Redis LangCache is necessary to the core architecture.
 - Terac materially improves safe semantic reuse.
 - UI clearly shows money/latency saved.
 - Sponsor story feels like one product:
-  “Band agents collaborate, Redis finds duplicate work, Redis Streams powers the live runtime feed, Terac verifies safe reuse, Token Company compresses unsafe calls, and Sentry reports the impact.”
+  “Band agents collaborate, Redis LangCache finds duplicate work, Redis Streams powers the live runtime feed, Terac verifies safe reuse, Token Company compresses unsafe calls, and Sentry reports the impact.”
 
 ## Assumptions
 - Four people work in parallel.

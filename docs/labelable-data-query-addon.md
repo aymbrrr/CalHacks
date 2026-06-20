@@ -157,24 +157,28 @@ The final section should look exactly like this:
 ## Collection Workflow
 
 1. Paste the add-on under normal real tasks.
-2. Save each final `REDUNDANT_LABEL_DATA` JSON array.
-3. Convert arrays into one JSONL file, one review item per line.
-4. Deduplicate by `pair_id` and near-duplicate `prompt_or_args`.
-5. Hand-check for privacy before sending anything to Terac.
-6. Feed clean items into the Terac task design.
+2. Append each final `REDUNDANT_LABEL_DATA` section into the local inbox.
+3. Run `python3 -m redundant_app ingest-inbox`.
+4. Check `python3 -m redundant_app dataset-stats` for total, pure LLM, labeled, and unlabeled counts.
+5. Label items in the dashboard or with `python3 -m redundant_app label-item`.
+6. Hand-check for privacy before sending anything to Terac.
+7. Feed clean items into the Terac task design.
 
-Suggested local filename:
+Local inbox filename:
 
 ```text
-data/terac-review-items.manual.jsonl
+data/redundant-label-inbox.md
 ```
 
-Do not commit that data file if it contains real private usage. Keep it local or create a sanitized sample fixture.
+`ingest-inbox` imports through the same validator as the dashboard, deduplicates by `pair_id`, archives imported inbox text under `data/inbox-archive/`, and clears the inbox. Use `--keep` if you want the inbox left untouched.
+
+Do not commit the inbox, archive, or generated JSONL files if they contain real private usage. Keep them local or create a sanitized sample fixture.
 
 ## What Makes A Good Real Example
 
 Good labelable examples have tension:
 
+- Positive safe-reuse cases where the earlier answer really should be enough.
 - High semantic similarity but questionable reuse.
 - Same source, different question.
 - Same question, stale answer risk.

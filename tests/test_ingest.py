@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from redundant_app.ingest import ingest_text, parse_label_data
+from redundant_app.ingest import ingest_inbox, ingest_text, parse_label_data
 from redundant_app.storage import JsonlStore
 
 
@@ -99,6 +99,19 @@ class IngestTests(unittest.TestCase):
             self.assertEqual(result.accepted, 1)
             self.assertEqual(stored["new_call"]["prompt_or_args"]["api_key"], "[REDACTED]")
             self.assertTrue(stored["privacy"]["redaction_applied"])
+
+    def test_ingest_inbox_archives_and_clears_imported_data(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = JsonlStore(Path(tmp))
+            inbox = Path(tmp) / "redundant-label-inbox.md"
+            inbox.write_text("REDUNDANT_LABEL_DATA\n```json\n" + json.dumps([llm_item()]) + "\n```\n", encoding="utf-8")
+
+            result = ingest_inbox(store, inbox)
+
+            self.assertEqual(result.ingest.accepted, 1)
+            self.assertEqual(inbox.read_text(encoding="utf-8"), "")
+            self.assertIsNotNone(result.archived_path)
+            self.assertTrue(Path(result.archived_path).exists())
 
 
 if __name__ == "__main__":

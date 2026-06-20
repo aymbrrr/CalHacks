@@ -1,0 +1,58 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/bin/python",
+            "args": [
+              "-m",
+              "redundant_app",
+              "claude-hook",
+              "--data-dir",
+              "data",
+              "--context"
+            ]
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/bin/python",
+            "args": [
+              "-m",
+              "redundant_app",
+              "claude-hook",
+              "--data-dir",
+              "data"
+            ]
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/bin/python",
+            "args": [
+              "-m",
+              "redundant_app",
+              "claude-hook",
+              "--data-dir",
+              "data"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

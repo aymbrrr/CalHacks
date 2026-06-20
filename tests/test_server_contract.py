@@ -17,6 +17,7 @@ class ContractTests(unittest.TestCase):
             self.assertTrue(events)
             for event in events:
                 self.assertIn(event["decision"], {"EXECUTE", "EXACT_REUSE", "SEMANTIC_REUSE", "COMPRESS_AND_EXECUTE", "BLOCK_OR_WARN"})
+                self.assertIn("Redis LangCache", event["sponsor_hooks"])
                 self.assertIn("Redis Streams", event["sponsor_hooks"])
                 self.assertIn("summary", event)
 

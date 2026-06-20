@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from .runtime import safe_payload, stable_hash, utc_now
@@ -37,6 +38,20 @@ class IngestResult:
         }
 
 
+@dataclass
+class InboxIngestResult:
+    inbox_path: str
+    archived_path: str | None
+    ingest: IngestResult
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "inbox_path": self.inbox_path,
+            "archived_path": self.archived_path,
+            "ingest": self.ingest.as_dict(),
+        }
+
+
 def parse_label_data(text: str) -> list[dict[str, Any]]:
     """Extract REDUNDANT_LABEL_DATA JSON from markdown or accept a raw JSON array."""
     stripped = text.strip()
@@ -58,6 +73,10 @@ def parse_label_data(text: str) -> list[dict[str, Any]]:
         return parsed
 
     raise ValueError("Could not find a JSON array or fenced REDUNDANT_LABEL_DATA block.")
+
+
+def default_inbox_path(data_dir: str | Path = "data") -> Path:
+    return Path(data_dir) / "redundant-label-inbox.md"
 
 
 def normalize_label_item(item: dict[str, Any], index: int = 0) -> tuple[dict[str, Any] | None, list[str]]:
@@ -161,3 +180,21 @@ def ingest_text(store: Any, text: str) -> IngestResult:
         errors=errors,
         items=imported,
     )
+
+
+def ingest_inbox(store: Any, inbox_path: str | Path | None = None, keep: bool = False) -> InboxIngestResult:
+    path = Path(inbox_path) if inbox_path else default_inbox_path(store.data_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.write_text("", encoding="utf-8")
+    text = path.read_text(encoding="utf-8")
+    result = ingest_text(store, text)
+    archived_path: str | None = None
+    if text.strip() and not keep and (result.accepted or result.duplicates):
+        archive_dir = path.parent / "inbox-archive"
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        archive_path = archive_dir / f"{path.stem}-{utc_now().replace(':', '').replace('-', '')}.md"
+        archive_path.write_text(text, encoding="utf-8")
+        path.write_text("", encoding="utf-8")
+        archived_path = str(archive_path)
+    return InboxIngestResult(inbox_path=str(path), archived_path=archived_path, ingest=result)

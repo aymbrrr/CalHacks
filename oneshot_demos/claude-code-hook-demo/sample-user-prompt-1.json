@@ -1,0 +1,5 @@
+{
+  "hook_event_name": "UserPromptSubmit",
+  "session_id": "claude-demo-session",
+  "prompt": "Plan the Redundant LangCache demo for Claude Code."
+}

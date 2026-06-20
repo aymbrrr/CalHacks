@@ -4,10 +4,12 @@ import argparse
 import json
 import sys
 
+from .claude_hooks import handle_hook_stdin
 from .demo import DEFAULT_TASK, export_sample, run_demo
-from .ingest import ingest_text
+from .ingest import default_inbox_path, ingest_inbox, ingest_text
 from .labels import VALID_FINAL_LABELS, evaluate_labels, submit_label, terac_export
 from .server import serve
+from .session_bridge import watch_sessions
 from .storage import JsonlStore
 
 
@@ -32,6 +34,24 @@ def main() -> None:
     ingest = sub.add_parser("ingest-label-data", help="Import REDUNDANT_LABEL_DATA markdown or JSON")
     ingest.add_argument("--data-dir", default="data")
     ingest.add_argument("--file", default="-", help="File to import, or '-' for stdin")
+
+    inbox = sub.add_parser("ingest-inbox", help="Import REDUNDANT_LABEL_DATA from the local always-on inbox")
+    inbox.add_argument("--data-dir", default="data")
+    inbox.add_argument("--inbox", default="", help="Inbox markdown file; defaults to data/redundant-label-inbox.md")
+    inbox.add_argument("--keep", action="store_true", help="Leave inbox content in place after import")
+
+    watch = sub.add_parser("watch-sessions", help="Poll the local coding-session label inbox and report dataset health")
+    watch.add_argument("--data-dir", default="data")
+    watch.add_argument("--inbox", default="", help="Inbox markdown file; defaults to data/redundant-label-inbox.md")
+    watch.add_argument("--interval", type=float, default=30.0, help="Seconds between inbox checks")
+    watch.add_argument("--once", action="store_true", help="Run one check and exit")
+    watch.add_argument("--keep", action="store_true", help="Leave imported inbox content in place")
+    watch.add_argument("--json", action="store_true", help="Print full JSON snapshots")
+
+    claude_hook = sub.add_parser("claude-hook", help="Capture a Claude Code hook event for Redundant")
+    claude_hook.add_argument("--data-dir", default="data")
+    claude_hook.add_argument("--context", action="store_true", help="Return Claude additionalContext when a reuse candidate is found")
+    claude_hook.add_argument("--similarity-threshold", type=float, default=0.56)
 
     label = sub.add_parser("label-item", help="Add a local Terac-style label answer for one review item")
     label.add_argument("--data-dir", default="data")
@@ -65,6 +85,26 @@ def main() -> None:
         store = JsonlStore(args.data_dir)
         result = ingest_text(store, text)
         print(json.dumps({"ingest": result.as_dict(), "stats": store.dataset_stats()}, indent=2, sort_keys=True))
+    elif args.command == "ingest-inbox":
+        store = JsonlStore(args.data_dir)
+        inbox_path = args.inbox or default_inbox_path(args.data_dir)
+        result = ingest_inbox(store, inbox_path=inbox_path, keep=args.keep)
+        print(json.dumps({"inbox": result.as_dict(), "stats": store.dataset_stats()}, indent=2, sort_keys=True))
+    elif args.command == "watch-sessions":
+        inbox_path = args.inbox or default_inbox_path(args.data_dir)
+        watch_sessions(
+            data_dir=args.data_dir,
+            inbox_path=inbox_path,
+            interval_seconds=args.interval,
+            cycles=1 if args.once else None,
+            keep=args.keep,
+            as_json=args.json,
+        )
+    elif args.command == "claude-hook":
+        hook_args = ["--data-dir", args.data_dir, "--similarity-threshold", str(args.similarity_threshold)]
+        if args.context:
+            hook_args.append("--context")
+        raise SystemExit(handle_hook_stdin(hook_args))
     elif args.command == "label-item":
         store = JsonlStore(args.data_dir)
         result = submit_label(

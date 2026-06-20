@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import re
 import time
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
+
+from .cache import CachedCall, build_langcache_backend, cache_prompt, input_hash_for
 
 
 DECISIONS = {
@@ -78,25 +78,6 @@ def words(value: Any) -> list[str]:
     return [w for w in re.findall(r"[a-z0-9]+", text) if len(w) > 2]
 
 
-def embedding(value: Any) -> dict[str, float]:
-    counts: dict[str, float] = {}
-    for word in words(value):
-        stem = word[:-1] if word.endswith("s") and len(word) > 4 else word
-        counts[stem] = counts.get(stem, 0.0) + 1.0
-    return counts
-
-
-def cosine(left: dict[str, float], right: dict[str, float]) -> float:
-    if not left or not right:
-        return 0.0
-    dot = sum(weight * right.get(key, 0.0) for key, weight in left.items())
-    left_norm = math.sqrt(sum(weight * weight for weight in left.values()))
-    right_norm = math.sqrt(sum(weight * weight for weight in right.values()))
-    if not left_norm or not right_norm:
-        return 0.0
-    return round(dot / (left_norm * right_norm), 4)
-
-
 def estimate_tokens(value: Any) -> int:
     return max(12, len(words(value)) * 2)
 
@@ -140,27 +121,6 @@ def label_reason(label: str, similarity: float, cacheability: str) -> str:
     return f"Similarity {similarity:.2f} makes this useful for human cache-safety labeling."
 
 
-@dataclass
-class CacheEntry:
-    call_id: str
-    run_id: str
-    agent_id: str
-    call_kind: str
-    tool_name: str
-    prompt_or_args: Any
-    normalized_input: str
-    input_hash: str
-    output: str
-    output_summary: str
-    cacheability: str
-    input_tokens: int
-    output_tokens: int
-    cost_usd: float
-    latency_ms: int
-    created_at: str
-    vector: dict[str, float] = field(default_factory=dict)
-
-
 class RedundantRuntime:
     def __init__(
         self,
@@ -169,6 +129,7 @@ class RedundantRuntime:
         semantic_threshold: float = 0.72,
         label_candidate_threshold: float = 0.45,
         dataset_check_every: int = 3,
+        cache_backend: Any | None = None,
     ):
         self.store = store
         self.run = run
@@ -177,7 +138,7 @@ class RedundantRuntime:
         self.semantic_threshold = semantic_threshold
         self.label_candidate_threshold = label_candidate_threshold
         self.dataset_check_every = dataset_check_every
-        self.entries: list[CacheEntry] = []
+        self.cache = cache_backend or build_langcache_backend()
         self.events: list[dict[str, Any]] = []
         self.calls: list[dict[str, Any]] = []
         self.label_items: list[dict[str, Any]] = []
@@ -208,8 +169,8 @@ class RedundantRuntime:
     ) -> str:
         self.counter += 1
         requested_at = utc_now()
-        normalized_input = stable_json({"call_kind": call_kind, "tool_name": tool_name, "payload": prompt_or_args}).lower()
-        input_hash = stable_hash(normalized_input)
+        normalized_input = cache_prompt(call_kind, tool_name, prompt_or_args)
+        input_hash = input_hash_for(normalized_input)
         call_id = f"{self.run_id}-call-{self.counter:03d}"
         cacheability = classify_cacheability(call_kind, tool_name, prompt_or_args)
         input_tokens = estimate_tokens(prompt_or_args)
@@ -218,8 +179,15 @@ class RedundantRuntime:
         estimated_latency = min(3200, 320 + input_tokens * 14)
         self.baseline_cost += estimated_cost
 
-        exact = next((entry for entry in self.entries if entry.input_hash == input_hash), None)
-        candidate, similarity = self._nearest_candidate(prompt_or_args, call_kind, tool_name)
+        lookup = self.cache.search(
+            prompt=normalized_input,
+            attributes={"call_kind": call_kind, "tool_name": tool_name},
+            input_hash=input_hash,
+            similarity_threshold=self.label_candidate_threshold,
+        )
+        exact = lookup.exact_entry
+        candidate = lookup.semantic_entry
+        similarity = lookup.similarity
         plausible_candidate = candidate if candidate and similarity >= self.label_candidate_threshold else None
         source = exact or plausible_candidate
         exact_match = exact is not None
@@ -260,7 +228,7 @@ class RedundantRuntime:
             decision = "EXACT_REUSE"
             output = exact.output
             verifier_score = 1.0
-            explanation = f"Redis exact cache hit from {exact.call_id}."
+            explanation = f"Redis LangCache exact hit from {exact.call_id}."
             saved_cost, saved_latency, saved_tokens = estimated_cost, estimated_latency, input_tokens + estimated_output_tokens
         elif self.mode == "redundant" and candidate and similarity >= self.semantic_threshold:
             hint = likely_label(cacheability, similarity, False)
@@ -268,7 +236,7 @@ class RedundantRuntime:
             if hint == "safe_reuse" and verifier_score >= 0.75:
                 decision = "SEMANTIC_REUSE"
                 output = candidate.output
-                explanation = f"Redis semantic candidate approved by Terac-style verifier at {verifier_score:.2f}."
+                explanation = f"Redis LangCache semantic candidate approved by Terac-style verifier at {verifier_score:.2f}."
                 saved_cost, saved_latency, saved_tokens = estimated_cost, estimated_latency, input_tokens + estimated_output_tokens
             elif input_tokens > 90 and cacheability != "side_effecting":
                 decision = "COMPRESS_AND_EXECUTE"
@@ -297,8 +265,8 @@ class RedundantRuntime:
 
         output_summary = self._summarize(output)
         if decision in {"EXECUTE", "COMPRESS_AND_EXECUTE"}:
-            self.entries.append(
-                CacheEntry(
+            self.cache.store(
+                CachedCall(
                     call_id=call_id,
                     run_id=self.run_id,
                     agent_id=agent_id,
@@ -315,7 +283,6 @@ class RedundantRuntime:
                     cost_usd=estimated_cost,
                     latency_ms=estimated_latency,
                     created_at=requested_at,
-                    vector=embedding(prompt_or_args),
                 )
             )
 
@@ -338,6 +305,8 @@ class RedundantRuntime:
             "reuse_source_call_id": source.call_id if source else None,
             "verifier_score": verifier_score,
             "explanation": explanation,
+            "cache_backend": lookup.backend,
+            "cache_backend_error": lookup.error,
         }
         self.calls.append(call_record)
         self.store.append_call(self.run_id, call_record)
@@ -385,6 +354,7 @@ class RedundantRuntime:
                 "pure_llm_labeled_items": dataset_stats.get("pure_llm_labeled_items", 0),
                 "jsonl_path": str(self.store.label_data_path),
             },
+            "cache_backend": self.cache.backend_name,
             "band_messages": self.band_messages,
         }
 
@@ -393,24 +363,11 @@ class RedundantRuntime:
             return output_fn(prompt_or_args)
         return f"{tool_name} result for {stable_json(prompt_or_args)[:180]}"
 
-    def _nearest_candidate(self, prompt_or_args: Any, call_kind: str, tool_name: str) -> tuple[CacheEntry | None, float]:
-        target = embedding(prompt_or_args)
-        best: tuple[CacheEntry | None, float] = (None, 0.0)
-        for entry in self.entries:
-            if entry.call_kind != call_kind:
-                continue
-            score = cosine(target, entry.vector)
-            if tool_name == entry.tool_name:
-                score = min(1.0, score + 0.08)
-            if score > best[1]:
-                best = (entry, score)
-        return best
-
     def _record_label_item(
         self,
         pair_id: str,
         new_call: dict[str, Any],
-        cached_call: CacheEntry,
+        cached_call: CachedCall,
         cacheability: str,
         similarity: float,
         exact_match: bool,
@@ -445,6 +402,7 @@ class RedundantRuntime:
                 "tool_has_side_effects": cacheability == "side_effecting",
                 "contains_user_state": cacheability == "state_bound",
                 "proposed_ttl_seconds": 300 if cacheability == "freshness_sensitive" else 3600,
+                "cache_backend": self.cache.backend_name,
             },
             "label_hint": {
                 "likely_label": label,
@@ -461,12 +419,12 @@ class RedundantRuntime:
     def _event(
         self,
         call: dict[str, Any],
-        source: CacheEntry | None,
+        source: CachedCall | None,
         saved_cost: float,
         saved_latency: int,
         saved_tokens: int,
     ) -> dict[str, Any]:
-        hooks = ["Redis", "Redis Streams"]
+        hooks = ["Redis", "Redis LangCache", "Redis Streams"]
         if call["call_type"] == "llm":
             hooks.append("Anthropic")
         if call["decision"] == "SEMANTIC_REUSE":
@@ -495,6 +453,8 @@ class RedundantRuntime:
             "verifier_score": call["verifier_score"],
             "cluster_id": self._cluster_id(call),
             "sponsor_hooks": sorted(set(hooks)),
+            "cache_backend": call.get("cache_backend"),
+            "cache_backend_error": call.get("cache_backend_error"),
         }
 
     def _maybe_dataset_check(self, agent_id: str) -> None:
@@ -518,7 +478,7 @@ class RedundantRuntime:
             "source_call_id": None,
             "verifier_score": None,
             "cluster_id": "dataset-monitor",
-            "sponsor_hooks": ["Terac", "Redis Streams"],
+            "sponsor_hooks": ["Redis LangCache", "Redis Streams", "Terac"],
         }
         self.events.append(event)
         self.store.append_event(self.run_id, event)
