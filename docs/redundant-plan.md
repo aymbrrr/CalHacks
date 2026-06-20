@@ -4,13 +4,13 @@
 Build **Redundant**, a runtime layer for multi-agent AI apps that prevents wasted LLM/tool spend before it happens. The core demo uses **Band** as the multi-agent coordination layer: multiple agents collaborate in a shared room, accidentally repeat work, and Redundant catches/reuses safe duplicate calls across agents.
 
 Base stack:
-**Band + Redis + Terac + Arize + Sentry + The Token Company + Anthropic**
+**Band + Redis + Redis Streams + Terac + Sentry + The Token Company + Anthropic**
 
 Reach goals:
-**Fetch AI** for an Agentverse/ASI:One auditor agent, and **Browserbase** for realistic browser-agent waste.
+**Fetch AI** for an Agentverse/ASI:One auditor agent, **Browserbase** for realistic browser-agent waste, and **Arize** for optional trace/eval polish.
 
 Target track:
-Primarily **Ddoski’s Toolbox** / developer tooling, with strong sponsor hooks for Band, Redis, Terac, Arize, Sentry, Token Company, Anthropic.
+Primarily **Ddoski’s Toolbox** / developer tooling, with strong sponsor hooks for Band, Redis/Redis Streams, Terac, Sentry, Token Company, Anthropic, and optional Arize.
 
 ## Product Behavior
 Redundant wraps every expensive agent action:
@@ -55,7 +55,7 @@ Every decision is logged with cost, latency, confidence, source call, and explan
 4. Redis checks exact cache first, then vector similarity.
 5. Terac-trained verifier approves or rejects semantic reuse candidates.
 6. If reuse is unsafe but prompt is bloated, Token Company compression is applied.
-7. Executed/reused calls are logged to Redundant, Arize, and optionally Sentry.
+7. Executed/reused calls are emitted to Redis Streams for the live UI and optionally mirrored to Sentry.
 8. UI shows live burn meter, duplicate clusters, savings, and suggested fixes.
 
 ## Required Call Schema
@@ -85,6 +85,107 @@ Each intercepted call stores:
   "explanation": "No safe duplicate found"
 }
 ```
+
+## UI/Backend Contract
+Lock this before parallel work starts. The backend/runtime owns these shapes; the UI should be able to build first against mocked responses, then switch to live Redis Streams events without changing component code.
+
+Conventions:
+- Timestamps are ISO strings.
+- Costs are USD numbers.
+- Latency is milliseconds.
+- `event_id` is the Redis Streams ID when live, or a stable replay ID when mocked.
+- Unknown optional fields should be ignored by the UI.
+
+Run lifecycle:
+
+```ts
+type Run = {
+  run_id: string
+  task: string
+  mode: "baseline" | "redundant" | "replay"
+  status: "idle" | "running" | "complete" | "failed"
+  started_at: string
+  completed_at?: string
+  error?: string
+}
+```
+
+Live Redis Streams event:
+
+```ts
+type RedundantEvent = {
+  event_id: string
+  run_id: string
+  ts: string
+  agent_id: "research-agent" | "report-agent" | "verifier-agent" | string
+  call_id: string
+  call_type: "llm" | "tool"
+  tool_name: string
+  decision: "EXECUTE" | "EXACT_REUSE" | "SEMANTIC_REUSE" | "COMPRESS_AND_EXECUTE" | "BLOCK_OR_WARN"
+  cacheability: "pure" | "freshness_sensitive" | "state_bound" | "side_effecting"
+  summary: string
+  explanation: string
+  saved_cost_usd: number
+  saved_latency_ms: number
+  saved_tokens: number
+  source_call_id?: string
+  verifier_score?: number
+  cluster_id?: string
+  sponsor_hooks?: Array<"Band" | "Redis" | "Redis Streams" | "Terac" | "Sentry" | "Token Company" | "Anthropic" | "Arize">
+}
+```
+
+Final report:
+
+```ts
+type RunReport = {
+  run_id: string
+  attempted_calls: number
+  executed_calls: number
+  reused_or_blocked_calls: number
+  redundant_rate: number
+  estimated_baseline_cost_usd: number
+  actual_cost_usd: number
+  saved_cost_usd: number
+  saved_latency_ms: number
+  saved_tokens: number
+  worst_duplicate_cluster?: string
+  clusters: DuplicateCluster[]
+  fixes: SuggestedFix[]
+}
+
+type DuplicateCluster = {
+  cluster_id: string
+  label: string
+  calls: number
+  unique_needed: number
+  waste_percent: number
+  saved_cost_usd: number
+  saved_latency_ms: number
+  agent_ids: string[]
+}
+
+type SuggestedFix = {
+  fix_id: string
+  title: string
+  description: string
+  sponsor_hook?: "Redis" | "Redis Streams" | "Terac" | "Sentry" | "Token Company" | "Anthropic" | "Band" | "Arize"
+  code_hint?: string
+}
+```
+
+Required endpoints:
+- `POST /api/runs/start`: body `{ task: string, mode: "baseline" | "redundant" | "replay" }`; returns `Run`.
+- `GET /api/runs/:run_id/events?after=<event_id>`: returns `RedundantEvent[]` for polling/fallback.
+- `GET /api/runs/:run_id/stream`: server-sent events stream where each message is a `RedundantEvent`.
+- `GET /api/runs/:run_id/report`: returns `RunReport`; may return partial totals while running.
+- `POST /api/runs/:run_id/replay`: replays a saved trace through the same event/report contract.
+
+Redis Streams contract:
+- Stream key: `stream:redundant:events:{run_id}`.
+- Backend writes one JSON payload per event under field `payload`.
+- UI never reads Redis directly; it consumes `/events` or `/stream`.
+- Replay mode emits the same event shape with deterministic timing so the demo works even if sponsor APIs fail.
 
 ## Cacheability Rules
 - `pure`: safe to cache aggressively. Examples: repo scan, doc search, static page summary.
@@ -134,7 +235,7 @@ Build:
 - Both agents call the same Redundant runtime so cross-agent reuse works.
 
 Demo task:
-“Research agent cost optimization tools, compare Redis/Arize/Sentry-style approaches, and produce a short recommendation.”
+“Research agent cost optimization tools, compare Redis/Sentry-style approaches, and produce a short recommendation.”
 
 Scripted waste:
 - Both agents search similar queries.
@@ -208,16 +309,18 @@ Build UI views:
   - replace repeated LLM classifier with embedding lookup
 - Sponsor tabs:
   - Redis cache/vector evidence
+  - Redis Streams live event feed
   - Terac verifier/eval
-  - Arize trace comparison
+  - Optional Arize trace comparison
   - Sentry issues
   - Band agent collaboration
 
 Integrations:
-- Arize: log traces for baseline run and Redundant run.
+- Redis Streams: base product event bus for attempted calls, decisions, savings, duplicate clusters, and live UI updates.
 - Sentry: create/report issues for duplicate clusters or agent loops.
 - Token Company: compress bloated prompts when reuse is unsafe.
 - Anthropic: use Claude and include prompt-cache-layout recommendation.
+- Arize: optional add-on for baseline vs optimized trace/eval comparison if time allows.
 
 Acceptance:
 - Judge can understand value in 30 seconds from UI.
@@ -226,12 +329,14 @@ Acceptance:
 
 ## Sponsor Integration Plan
 - **Band**: base multi-agent system; at least two agents collaborate through Band.
-- **Redis**: exact cache, vector search, TTL/staleness, duplicate clusters.
+- **Redis**: exact cache, vector search, TTL/staleness, duplicate clusters, and Redis Streams for live runtime events.
 - **Terac**: human labels for semantic reuse safety verifier.
-- **Arize**: baseline vs optimized traces/evals.
 - **Sentry**: waste/loop issues with dollar and latency impact.
 - **The Token Company**: compression path for unsafe-to-cache bloated prompts.
 - **Anthropic**: Claude calls plus prompt-cache optimization suggestions.
+
+Optional add-on:
+- **Arize**: baseline vs optimized traces/evals if the core Redis Streams-based product is already stable.
 
 Avoid adding:
 - Pika/Midjourney unless making pitch assets after product is done.
@@ -270,6 +375,18 @@ Acceptance:
 - Demo shows Redundant saving repeated browser-agent work.
 - Browserbase is central to at least one visible workflow, not just a background fetch.
 
+## Reach Goal: Arize
+Build only after the Redis Streams live event path is stable.
+
+Implement:
+- Export baseline and Redundant-enabled run traces from the Redis Streams event log.
+- Compare task quality, unsafe reuse rate, cost, latency, and duplicate-call rate.
+- Use Arize as an external eval/trace view, not as the base event bus.
+
+Acceptance:
+- Arize view mirrors the same run IDs and metrics shown in Redundant.
+- Demo can show trace/eval comparison, but the core product still works if Arize is unavailable.
+
 ## Demo Timeline
 1. Show baseline Band run with waste enabled.
 2. Agents repeat searches/summaries/repo scans.
@@ -277,7 +394,7 @@ Acceptance:
 4. Turn on Redundant.
 5. Rerun same task.
 6. Show exact reuse, semantic reuse, cross-agent reuse, unsafe semantic block, compression path.
-7. Open Arize trace comparison.
+7. Open the Redis Streams-backed live event/trace view.
 8. Show Sentry waste issue.
 9. End on final report:
    - attempted calls: e.g. 74
@@ -302,7 +419,7 @@ Acceptance:
 - Demo fallback:
   - Record one complete trace JSON.
   - UI can replay trace if external APIs fail.
-  - Sentry/Arize screenshots or mocked exports are acceptable fallback only after live path is attempted.
+  - Sentry screenshots or optional Arize exports are acceptable fallback only after live path is attempted.
 - Hard no:
   - Do not let any side-effecting tool auto-replay.
   - Do not pitch as a dashboard; pitch as runtime prevention.
@@ -314,11 +431,11 @@ Acceptance:
 - Terac materially improves safe semantic reuse.
 - UI clearly shows money/latency saved.
 - Sponsor story feels like one product:
-  “Band agents collaborate, Redis finds duplicate work, Terac verifies safe reuse, Token Company compresses unsafe calls, Arize/Sentry prove and report the impact.”
+  “Band agents collaborate, Redis finds duplicate work, Redis Streams powers the live runtime feed, Terac verifies safe reuse, Token Company compresses unsafe calls, and Sentry reports the impact.”
 
 ## Assumptions
 - Four people work in parallel.
 - No more sponsors are added to the base stack.
-- Fetch AI and Browserbase remain reach goals.
+- Fetch AI, Browserbase, and Arize remain reach/add-on goals.
 - The product name is **Redundant** unless the team chooses a replacement before implementation.
 - Primary judging pitch is developer-tooling impact, not consumer UX.
