@@ -1,0 +1,2050 @@
+{
+  "agents": [
+    {
+      "agent_name": "ResearchAgent",
+      "prompt": "You are ResearchAgent. Use Band room context, call only Redundant-wrapped tools, post concise findings, and leave useful source references for downstream agents."
+    },
+    {
+      "agent_name": "ReportAgent",
+      "prompt": "You are ReportAgent. Read Band room context, deliberately ask overlapping questions, reuse safe Redundant results, and write the final recommendation."
+    },
+    {
+      "agent_name": "VerifierAgent",
+      "prompt": "You are VerifierAgent. Produce a repeated flaky verification pattern so Redundant can demonstrate runaway-loop detection without calling a live verifier."
+    },
+    {
+      "agent_name": "AuditAgent",
+      "prompt": "You are AuditAgent. Confirm that the exact cross-agent duplicate is visible across ResearchAgent, ReportAgent, and AuditAgent."
+    }
+  ],
+  "commands": {
+    "baseline": "python demos/band/run_band_demo.py --mode baseline --run-id run-001-real-band",
+    "redundant": "python demos/band/run_band_demo.py --mode redundant --run-id run-001-real-band",
+    "replay": "python demos/band/replay_trace.py demos/band/traces/band_demo_trace.json --run-id run-001-real-band"
+  },
+  "duplicate_clusters": [
+    {
+      "agents": [
+        "AuditAgent",
+        "ReportAgent",
+        "ResearchAgent"
+      ],
+      "call_ids": [
+        "s_004",
+        "s_012",
+        "s_019"
+      ],
+      "cluster_id": "cluster_exact_search_docs",
+      "decisions": [
+        "EXACT_REUSE",
+        "EXECUTE"
+      ],
+      "input_hashes": [
+        "e4f7a8cb5147"
+      ],
+      "tool_name": "search_docs",
+      "type": "exact"
+    },
+    {
+      "agents": [
+        "ReportAgent",
+        "ResearchAgent"
+      ],
+      "call_ids": [
+        "s_006",
+        "s_013"
+      ],
+      "cluster_id": "cluster_semantic_scan_repo",
+      "decisions": [
+        "EXECUTE",
+        "SEMANTIC_REUSE"
+      ],
+      "input_hashes": [
+        "111896a67957",
+        "a3640dfca83a"
+      ],
+      "tool_name": "scan_repo",
+      "type": "semantic"
+    },
+    {
+      "agents": [
+        "ReportAgent",
+        "ResearchAgent"
+      ],
+      "call_ids": [
+        "s_007",
+        "s_014"
+      ],
+      "cluster_id": "cluster_exact_summary",
+      "decisions": [
+        "EXACT_REUSE",
+        "EXECUTE"
+      ],
+      "input_hashes": [
+        "59d4b13d4cc1"
+      ],
+      "tool_name": "summarize_page",
+      "type": "exact"
+    },
+    {
+      "agents": [
+        "ReportAgent",
+        "ResearchAgent"
+      ],
+      "call_ids": [
+        "s_008",
+        "s_015"
+      ],
+      "cluster_id": "cluster_unsafe_search_docs",
+      "decisions": [
+        "EXECUTE",
+        "UNSAFE_SEMANTIC_BLOCK"
+      ],
+      "input_hashes": [
+        "8fa75ea00128",
+        "91688272617e"
+      ],
+      "tool_name": "search_docs",
+      "type": "unsafe_semantic_block"
+    },
+    {
+      "agents": [
+        "VerifierAgent"
+      ],
+      "call_ids": [
+        "s_021",
+        "s_022",
+        "s_023",
+        "s_024",
+        "s_025",
+        "s_026",
+        "s_027",
+        "s_028",
+        "s_029",
+        "s_030",
+        "s_031",
+        "s_032"
+      ],
+      "cluster_id": "cluster_loop_verify_source",
+      "decisions": [
+        "EXECUTE"
+      ],
+      "input_hashes": [
+        "aeba4bea66ec"
+      ],
+      "tool_name": "verify_source",
+      "type": "runaway_loop"
+    }
+  ],
+  "events": [
+    {
+      "agent_id": "ResearchAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_003",
+      "call_type": "llm",
+      "cluster_id": null,
+      "decision": "EXECUTE",
+      "event_id": "e_001",
+      "explanation": "LLM calls are recorded through redundant.llm for attribution.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Anthropic",
+        "Redis Streams"
+      ],
+      "summary": "ResearchAgent generated research plan.",
+      "tool_name": null,
+      "ts": "2026-06-20T19:00:01.015000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "ResearchAgent",
+      "cacheability": "pure",
+      "call_id": "s_004",
+      "call_type": "tool",
+      "cluster_id": "cluster_exact_search_docs",
+      "decision": "EXECUTE",
+      "event_id": "e_002",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "ResearchAgent executed search_docs.",
+      "tool_name": "search_docs",
+      "ts": "2026-06-20T19:00:01.780000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "ResearchAgent",
+      "cacheability": "pure",
+      "call_id": "s_005",
+      "call_type": "tool",
+      "cluster_id": null,
+      "decision": "EXECUTE",
+      "event_id": "e_003",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "ResearchAgent executed search_docs.",
+      "tool_name": "search_docs",
+      "ts": "2026-06-20T19:00:02.545000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "ResearchAgent",
+      "cacheability": "pure",
+      "call_id": "s_006",
+      "call_type": "tool",
+      "cluster_id": "cluster_semantic_scan_repo",
+      "decision": "EXECUTE",
+      "event_id": "e_004",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "ResearchAgent executed scan_repo.",
+      "tool_name": "scan_repo",
+      "ts": "2026-06-20T19:00:03.430000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "ResearchAgent",
+      "cacheability": "pure",
+      "call_id": "s_007",
+      "call_type": "tool",
+      "cluster_id": "cluster_exact_summary",
+      "decision": "EXECUTE",
+      "event_id": "e_005",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "ResearchAgent executed summarize_page.",
+      "tool_name": "summarize_page",
+      "ts": "2026-06-20T19:00:04.035000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "ResearchAgent",
+      "cacheability": "pure",
+      "call_id": "s_008",
+      "call_type": "tool",
+      "cluster_id": "cluster_unsafe_search_docs",
+      "decision": "EXECUTE",
+      "event_id": "e_006",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "ResearchAgent executed search_docs.",
+      "tool_name": "search_docs",
+      "ts": "2026-06-20T19:00:04.800000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "ResearchAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_009",
+      "call_type": "llm",
+      "cluster_id": null,
+      "decision": "EXECUTE",
+      "event_id": "e_007",
+      "explanation": "LLM calls are recorded through redundant.llm for attribution.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Anthropic",
+        "Redis Streams"
+      ],
+      "summary": "ResearchAgent generated research findings.",
+      "tool_name": null,
+      "ts": "2026-06-20T19:00:05.745000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "ReportAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_011",
+      "call_type": "llm",
+      "cluster_id": null,
+      "decision": "EXECUTE",
+      "event_id": "e_008",
+      "explanation": "LLM calls are recorded through redundant.llm for attribution.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Anthropic",
+        "Redis Streams"
+      ],
+      "summary": "ReportAgent generated report overlap request.",
+      "tool_name": null,
+      "ts": "2026-06-20T19:00:06.745000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "ReportAgent",
+      "cacheability": "pure",
+      "call_id": "s_012",
+      "call_type": "tool",
+      "cluster_id": "cluster_exact_search_docs",
+      "decision": "EXACT_REUSE",
+      "event_id": "e_009",
+      "explanation": "Same tool name and normalized input hash were already present in this run.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.12,
+      "saved_latency_ms": 720,
+      "saved_tokens": 98,
+      "source_call_id": "s_004",
+      "sponsor_hooks": [
+        "Band",
+        "Redis",
+        "Redis Streams"
+      ],
+      "summary": "ReportAgent reused ResearchAgent's prior search_docs result.",
+      "tool_name": "search_docs",
+      "ts": "2026-06-20T19:00:06.825000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "ReportAgent",
+      "cacheability": "pure",
+      "call_id": "s_013",
+      "call_type": "tool",
+      "cluster_id": "cluster_semantic_scan_repo",
+      "decision": "SEMANTIC_REUSE",
+      "event_id": "e_010",
+      "explanation": "Redis vector match found the prior ResearchAgent scan and the verifier accepted it.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.16,
+      "saved_latency_ms": 840,
+      "saved_tokens": 81,
+      "source_call_id": "s_006",
+      "sponsor_hooks": [
+        "Band",
+        "Redis",
+        "Redis Streams",
+        "Terac"
+      ],
+      "summary": "ReportAgent reused a semantically equivalent repo scan.",
+      "tool_name": "scan_repo",
+      "ts": "2026-06-20T19:00:06.960000Z",
+      "verifier_score": 0.92
+    },
+    {
+      "agent_id": "ReportAgent",
+      "cacheability": "pure",
+      "call_id": "s_014",
+      "call_type": "tool",
+      "cluster_id": "cluster_exact_summary",
+      "decision": "EXACT_REUSE",
+      "event_id": "e_011",
+      "explanation": "Same tool name and normalized input hash were already present in this run.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.09,
+      "saved_latency_ms": 560,
+      "saved_tokens": 85,
+      "source_call_id": "s_007",
+      "sponsor_hooks": [
+        "Band",
+        "Redis",
+        "Redis Streams"
+      ],
+      "summary": "ReportAgent reused ResearchAgent's prior summarize_page result.",
+      "tool_name": "summarize_page",
+      "ts": "2026-06-20T19:00:07.040000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "ReportAgent",
+      "cacheability": "pure",
+      "call_id": "s_015",
+      "call_type": "tool",
+      "cluster_id": "cluster_unsafe_search_docs",
+      "decision": "UNSAFE_SEMANTIC_BLOCK",
+      "event_id": "e_012",
+      "explanation": "The Redis cache-invalidation result looked similar, but Terac-style verification rejected reuse for Sentry alert-routing strategy.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": "s_008",
+      "sponsor_hooks": [
+        "Band",
+        "Redis",
+        "Redis Streams",
+        "Terac"
+      ],
+      "summary": "Semantic candidate was blocked by the verifier.",
+      "tool_name": "search_docs",
+      "ts": "2026-06-20T19:00:07.805000Z",
+      "verifier_score": 0.21
+    },
+    {
+      "agent_id": "ReportAgent",
+      "cacheability": "pure",
+      "call_id": "s_016",
+      "call_type": "tool",
+      "cluster_id": null,
+      "decision": "EXECUTE",
+      "event_id": "e_013",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "ReportAgent executed compare_tools.",
+      "tool_name": "compare_tools",
+      "ts": "2026-06-20T19:00:08.330000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "AuditAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_018",
+      "call_type": "llm",
+      "cluster_id": null,
+      "decision": "EXECUTE",
+      "event_id": "e_014",
+      "explanation": "LLM calls are recorded through redundant.llm for attribution.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Anthropic",
+        "Redis Streams"
+      ],
+      "summary": "AuditAgent generated audit note.",
+      "tool_name": null,
+      "ts": "2026-06-20T19:00:09.330000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "AuditAgent",
+      "cacheability": "pure",
+      "call_id": "s_019",
+      "call_type": "tool",
+      "cluster_id": "cluster_exact_search_docs",
+      "decision": "EXACT_REUSE",
+      "event_id": "e_015",
+      "explanation": "Same tool name and normalized input hash were already present in this run.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.12,
+      "saved_latency_ms": 720,
+      "saved_tokens": 98,
+      "source_call_id": "s_004",
+      "sponsor_hooks": [
+        "Band",
+        "Redis",
+        "Redis Streams"
+      ],
+      "summary": "AuditAgent reused ResearchAgent's prior search_docs result.",
+      "tool_name": "search_docs",
+      "ts": "2026-06-20T19:00:09.410000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "VerifierAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_021",
+      "call_type": "tool",
+      "cluster_id": "cluster_loop_verify_source",
+      "decision": "EXECUTE",
+      "event_id": "e_016",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "VerifierAgent executed verify_source.",
+      "tool_name": "verify_source",
+      "ts": "2026-06-20T19:00:09.750000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "VerifierAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_022",
+      "call_type": "tool",
+      "cluster_id": "cluster_loop_verify_source",
+      "decision": "EXECUTE",
+      "event_id": "e_017",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "VerifierAgent executed verify_source.",
+      "tool_name": "verify_source",
+      "ts": "2026-06-20T19:00:10.035000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "VerifierAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_023",
+      "call_type": "tool",
+      "cluster_id": "cluster_loop_verify_source",
+      "decision": "EXECUTE",
+      "event_id": "e_018",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "VerifierAgent executed verify_source.",
+      "tool_name": "verify_source",
+      "ts": "2026-06-20T19:00:10.320000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "VerifierAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_024",
+      "call_type": "tool",
+      "cluster_id": "cluster_loop_verify_source",
+      "decision": "EXECUTE",
+      "event_id": "e_019",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "VerifierAgent executed verify_source.",
+      "tool_name": "verify_source",
+      "ts": "2026-06-20T19:00:10.605000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "VerifierAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_025",
+      "call_type": "tool",
+      "cluster_id": "cluster_loop_verify_source",
+      "decision": "EXECUTE",
+      "event_id": "e_020",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "VerifierAgent executed verify_source.",
+      "tool_name": "verify_source",
+      "ts": "2026-06-20T19:00:10.890000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "VerifierAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_026",
+      "call_type": "tool",
+      "cluster_id": "cluster_loop_verify_source",
+      "decision": "EXECUTE",
+      "event_id": "e_021",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "VerifierAgent executed verify_source.",
+      "tool_name": "verify_source",
+      "ts": "2026-06-20T19:00:11.175000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "VerifierAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_027",
+      "call_type": "tool",
+      "cluster_id": "cluster_loop_verify_source",
+      "decision": "EXECUTE",
+      "event_id": "e_022",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "VerifierAgent executed verify_source.",
+      "tool_name": "verify_source",
+      "ts": "2026-06-20T19:00:11.460000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "VerifierAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_028",
+      "call_type": "tool",
+      "cluster_id": "cluster_loop_verify_source",
+      "decision": "EXECUTE",
+      "event_id": "e_023",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "VerifierAgent executed verify_source.",
+      "tool_name": "verify_source",
+      "ts": "2026-06-20T19:00:11.745000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "VerifierAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_029",
+      "call_type": "tool",
+      "cluster_id": "cluster_loop_verify_source",
+      "decision": "EXECUTE",
+      "event_id": "e_024",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "VerifierAgent executed verify_source.",
+      "tool_name": "verify_source",
+      "ts": "2026-06-20T19:00:12.030000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "VerifierAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_030",
+      "call_type": "tool",
+      "cluster_id": "cluster_loop_verify_source",
+      "decision": "EXECUTE",
+      "event_id": "e_025",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "VerifierAgent executed verify_source.",
+      "tool_name": "verify_source",
+      "ts": "2026-06-20T19:00:12.315000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "VerifierAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_031",
+      "call_type": "tool",
+      "cluster_id": "cluster_loop_verify_source",
+      "decision": "EXECUTE",
+      "event_id": "e_026",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "VerifierAgent executed verify_source.",
+      "tool_name": "verify_source",
+      "ts": "2026-06-20T19:00:12.600000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "VerifierAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_032",
+      "call_type": "tool",
+      "cluster_id": "cluster_loop_verify_source",
+      "decision": "EXECUTE",
+      "event_id": "e_027",
+      "explanation": "No safe reusable result was available for this call.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams"
+      ],
+      "summary": "VerifierAgent executed verify_source.",
+      "tool_name": "verify_source",
+      "ts": "2026-06-20T19:00:12.885000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "VerifierAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_032",
+      "call_type": "tool",
+      "cluster_id": "cluster_loop_verify_source",
+      "decision": "RUNAWAY_LOOP_ALERT",
+      "event_id": "e_028",
+      "explanation": "The repeated input cleared the R_max=10 threshold and routed to the alert path.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Redis Streams",
+        "Sentry"
+      ],
+      "summary": "VerifierAgent repeated verify_source 12 times without progress.",
+      "tool_name": "verify_source",
+      "ts": "2026-06-20T19:00:12.885000Z",
+      "verifier_score": null
+    },
+    {
+      "agent_id": "ReportAgent",
+      "cacheability": "state_bound",
+      "call_id": "s_034",
+      "call_type": "llm",
+      "cluster_id": null,
+      "decision": "EXECUTE",
+      "event_id": "e_029",
+      "explanation": "LLM calls are recorded through redundant.llm for attribution.",
+      "run_id": "run-001-real-band",
+      "saved_cost_usd": 0.0,
+      "saved_latency_ms": 0,
+      "saved_tokens": 0,
+      "source_call_id": null,
+      "sponsor_hooks": [
+        "Band",
+        "Anthropic",
+        "Redis Streams"
+      ],
+      "summary": "ReportAgent generated final recommendation.",
+      "tool_name": null,
+      "ts": "2026-06-20T19:00:13.885000Z",
+      "verifier_score": null
+    }
+  ],
+  "known_fallback_limitations": [
+    "Real Band mode uses the Band SDK for room delivery, but still uses deterministic scripted local tools.",
+    "The Redundant runtime is the same demo-compatible shim used by fallback mode.",
+    "The trace is updated locally as Band messages trigger each remote agent."
+  ],
+  "report": {
+    "actual_cost_usd": 1.91,
+    "attempted_calls": 28,
+    "estimated_baseline_cost_usd": 2.4,
+    "executed_calls": 24,
+    "mode": "redundant",
+    "redundant_rate": 0.1786,
+    "reused_or_blocked_calls": 5,
+    "run_id": "run-001-real-band",
+    "saved_cost_usd": 0.49,
+    "saved_latency_ms": 2840,
+    "saved_tokens": 362,
+    "summary": "$0.49 wasted of $2.40 total in the baseline path.",
+    "visible_line": "ReportAgent reused ResearchAgent's prior result.",
+    "waste_rate": 0.2042
+  },
+  "room_transcript": [
+    {
+      "content": "@[[23392213-ec29-4ee0-87bc-93b2cc95a3f0]] Research agent cost optimization tools, compare Redis/Sentry-style approaches, and produce a short recommendation.",
+      "kind": "task",
+      "message_id": "m_001",
+      "references": [],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "User",
+      "ts": "2026-06-20T19:00:00.035000Z"
+    },
+    {
+      "content": "Plan: search the shared cost-optimization query, scan wrapper code patterns, summarize the canonical source, then post reusable findings for the other agents.",
+      "kind": "message",
+      "message_id": "m_002",
+      "references": [
+        "s_003"
+      ],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "ResearchAgent",
+      "ts": "2026-06-20T19:00:01.015000Z"
+    },
+    {
+      "content": "Findings: Redis should handle exact cache keys and streams; semantic reuse needs verifier gating; Sentry is strongest for runaway-loop visibility.",
+      "kind": "message",
+      "message_id": "m_003",
+      "references": [
+        "s_004",
+        "s_005",
+        "s_006",
+        "s_007",
+        "s_008"
+      ],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "ResearchAgent",
+      "ts": "2026-06-20T19:00:05.745000Z"
+    },
+    {
+      "content": "@ReportAgent please continue the Redundant demo by asking the overlapping questions.",
+      "kind": "handoff",
+      "message_id": "m_004",
+      "references": [],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "ResearchAgent",
+      "ts": "2026-06-20T19:00:05.765000Z"
+    },
+    {
+      "content": "I need to verify the shared search result, check an equivalent cache-wrapper repo topic, and compare Redis with Sentry before writing the recommendation.",
+      "kind": "message",
+      "message_id": "m_005",
+      "references": [
+        "s_011"
+      ],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "ReportAgent",
+      "ts": "2026-06-20T19:00:06.745000Z"
+    },
+    {
+      "content": "ReportAgent reused ResearchAgent's prior result.",
+      "kind": "message",
+      "message_id": "m_006",
+      "references": [
+        "s_012",
+        "s_004"
+      ],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "ReportAgent",
+      "ts": "2026-06-20T19:00:06.825000Z"
+    },
+    {
+      "content": "Semantic reuse accepted for the tool cache decorator scan.",
+      "kind": "message",
+      "message_id": "m_007",
+      "references": [
+        "s_013",
+        "s_006"
+      ],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "ReportAgent",
+      "ts": "2026-06-20T19:00:06.960000Z"
+    },
+    {
+      "content": "Verifier blocked unsafe semantic reuse; executing the Sentry-specific search instead.",
+      "kind": "message",
+      "message_id": "m_008",
+      "references": [
+        "s_015",
+        "s_008"
+      ],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "ReportAgent",
+      "ts": "2026-06-20T19:00:07.805000Z"
+    },
+    {
+      "content": "Overlap check complete; I have exact reuse, semantic reuse, an unsafe block, and the Redis/Sentry comparison.",
+      "kind": "message",
+      "message_id": "m_009",
+      "references": [
+        "s_012",
+        "s_013",
+        "s_014",
+        "s_015",
+        "s_016"
+      ],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "ReportAgent",
+      "ts": "2026-06-20T19:00:08.330000Z"
+    },
+    {
+      "content": "@AuditAgent please run the exact duplicate audit for the canonical search query.",
+      "kind": "handoff",
+      "message_id": "m_010",
+      "references": [],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "ReportAgent",
+      "ts": "2026-06-20T19:00:08.350000Z"
+    },
+    {
+      "content": "@VerifierAgent please run the 12-call flaky source verification loop.",
+      "kind": "handoff",
+      "message_id": "m_011",
+      "references": [],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "ReportAgent",
+      "ts": "2026-06-20T19:00:08.350000Z"
+    },
+    {
+      "content": "Audit note: I will intentionally repeat the canonical search query to prove the exact cross-agent duplicate cluster includes three agents.",
+      "kind": "message",
+      "message_id": "m_012",
+      "references": [
+        "s_018"
+      ],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "AuditAgent",
+      "ts": "2026-06-20T19:00:09.330000Z"
+    },
+    {
+      "content": "Audit duplicate check decision: EXACT_REUSE.",
+      "kind": "message",
+      "message_id": "m_013",
+      "references": [
+        "s_019"
+      ],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "AuditAgent",
+      "ts": "2026-06-20T19:00:09.410000Z"
+    },
+    {
+      "content": "Starting repeated source verification; this intentionally should not converge.",
+      "kind": "message",
+      "message_id": "m_014",
+      "references": [],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "VerifierAgent",
+      "ts": "2026-06-20T19:00:09.465000Z"
+    },
+    {
+      "content": "RUNAWAY_LOOP_ALERT: verify_source repeated 12 times without convergence.",
+      "kind": "message",
+      "message_id": "m_015",
+      "references": [
+        "s_032"
+      ],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "VerifierAgent",
+      "ts": "2026-06-20T19:00:12.885000Z"
+    },
+    {
+      "content": "@ReportAgent VerifierAgent is done; please write the final recommendation.",
+      "kind": "handoff",
+      "message_id": "m_016",
+      "references": [],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "VerifierAgent",
+      "ts": "2026-06-20T19:00:12.905000Z"
+    },
+    {
+      "content": "Recommendation: use Redis for exact and semantic reuse metadata plus Redis Streams for the live feed, gate semantic matches with verifier labels, and route runaway loops to Sentry.",
+      "kind": "final",
+      "message_id": "m_017",
+      "references": [
+        "s_034"
+      ],
+      "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+      "run_id": "run-001-real-band",
+      "speaker": "ReportAgent",
+      "ts": "2026-06-20T19:00:13.885000Z"
+    }
+  ],
+  "run": {
+    "band_adapter": "real-band-sdk",
+    "completed_at": "2026-06-20T19:00:13.925000Z",
+    "mode": "real-band",
+    "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+    "run_id": "run-001-real-band",
+    "started_at": "2026-06-20T19:00:00Z",
+    "status": "complete",
+    "task": "Research agent cost optimization tools, compare Redis/Sentry-style approaches, and produce a short recommendation."
+  },
+  "schema_version": "band-demo-trace-v1",
+  "spans": [
+    {
+      "agent_name": "BandRoom",
+      "baseline_cost_usd": 0.0,
+      "cacheability": null,
+      "cost_usd": 0.0,
+      "decision": null,
+      "end_time": 1781982013905,
+      "input": "@[[23392213-ec29-4ee0-87bc-93b2cc95a3f0]] Research agent cost optimization tools, compare Redis/Sentry-style approaches, and produce a short recommendation.",
+      "input_hash": "7359039006ee",
+      "kind": "agent",
+      "latency_ms": 13905,
+      "metadata": {
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": null,
+      "name": "agent:BandRoom",
+      "output": "Completed real Band SDK multi-agent collaboration.",
+      "parent_span_id": null,
+      "span_id": "s_001",
+      "start_time": 1781982000000,
+      "tokens": null,
+      "tool_name": null
+    },
+    {
+      "agent_name": "ResearchAgent",
+      "baseline_cost_usd": 0.0,
+      "cacheability": null,
+      "cost_usd": 0.0,
+      "decision": null,
+      "end_time": 1781982005745,
+      "input": "@[[23392213-ec29-4ee0-87bc-93b2cc95a3f0]] Research agent cost optimization tools, compare Redis/Sentry-style approaches, and produce a short recommendation.",
+      "input_hash": "7359039006ee",
+      "kind": "agent",
+      "latency_ms": 5710,
+      "metadata": {
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": null,
+      "name": "agent:ResearchAgent",
+      "output": "Posted research plan and findings to Band.",
+      "parent_span_id": "s_001",
+      "span_id": "s_002",
+      "start_time": 1781982000035,
+      "tokens": null,
+      "tool_name": null
+    },
+    {
+      "agent_name": "ResearchAgent",
+      "baseline_cost_usd": 0.15,
+      "cacheability": "state_bound",
+      "cluster_id": null,
+      "cost_usd": 0.15,
+      "decision": "EXECUTE",
+      "end_time": 1781982001015,
+      "input": "[{\"content\": \"You are ResearchAgent. Use Band room context, call only Redundant-wrapped tools, post concise findings, and leave useful source references for downstream agents.\", \"role\": \"system\"}, {\"content\": \"@[[23392213-ec29-4ee0-87bc-93b2cc95a3f0]] Research agent cost optimization tools, compare Redis/Sentry-style approaches, and produce a short recommendation.\", \"role\": \"user\"}]",
+      "input_hash": "827ea4d794d6",
+      "kind": "llm",
+      "latency_ms": 900,
+      "metadata": {
+        "purpose": "research_plan",
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "claude-3-5-sonnet-demo",
+      "name": "llm:research_plan",
+      "output": "Plan: search the shared cost-optimization query, scan wrapper code patterns, summarize the canonical source, then post reusable findings for the other agents.",
+      "parent_span_id": "s_002",
+      "source_call_id": null,
+      "span_id": "s_003",
+      "start_time": 1781982000115,
+      "tokens": {
+        "input": 120,
+        "output": 51
+      },
+      "tool_name": null
+    },
+    {
+      "agent_name": "ResearchAgent",
+      "baseline_cost_usd": 0.12,
+      "cacheability": "pure",
+      "cluster_id": "cluster_exact_search_docs",
+      "cost_usd": 0.12,
+      "decision": "EXECUTE",
+      "end_time": 1781982001780,
+      "input": "agent cost optimization redis sentry",
+      "input_hash": "e4f7a8cb5147",
+      "kind": "tool",
+      "latency_ms": 720,
+      "metadata": {
+        "args": {
+          "query": "agent cost optimization redis sentry"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:search_docs",
+      "output": "Redis is the best fit for exact reuse because stable tool inputs can map to a cache key. Redis Streams gives the live timeline. Sentry is strongest for alert routing and triage when agents repeat work or run away.",
+      "parent_span_id": "s_002",
+      "source_call_id": null,
+      "span_id": "s_004",
+      "start_time": 1781982001060,
+      "tokens": {
+        "input": 33,
+        "output": 65
+      },
+      "tool_name": "search_docs"
+    },
+    {
+      "agent_name": "ResearchAgent",
+      "baseline_cost_usd": 0.12,
+      "cacheability": "pure",
+      "cluster_id": null,
+      "cost_usd": 0.12,
+      "decision": "EXECUTE",
+      "end_time": 1781982002545,
+      "input": "LangChain agent tracing cost optimization",
+      "input_hash": "65cb060106f9",
+      "kind": "tool",
+      "latency_ms": 720,
+      "metadata": {
+        "args": {
+          "query": "LangChain agent tracing cost optimization"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:search_docs",
+      "output": "LangChain-style tracing helps expose repeated tool calls, but it normally reports waste after execution. Redundant should prevent safe duplicates before cost is spent.",
+      "parent_span_id": "s_002",
+      "source_call_id": null,
+      "span_id": "s_005",
+      "start_time": 1781982001825,
+      "tokens": {
+        "input": 34,
+        "output": 53
+      },
+      "tool_name": "search_docs"
+    },
+    {
+      "agent_name": "ResearchAgent",
+      "baseline_cost_usd": 0.16,
+      "cacheability": "pure",
+      "cluster_id": "cluster_semantic_scan_repo",
+      "cost_usd": 0.16,
+      "decision": "EXECUTE",
+      "end_time": 1781982003430,
+      "input": "cached tool wrapper",
+      "input_hash": "111896a67957",
+      "kind": "tool",
+      "latency_ms": 840,
+      "metadata": {
+        "args": {
+          "topic": "cached tool wrapper"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:scan_repo",
+      "output": "Repository scan: a cached wrapper should canonicalize tool args, look up exact reuse first, ask the semantic verifier only for near matches, and always emit a span.",
+      "parent_span_id": "s_002",
+      "source_call_id": null,
+      "span_id": "s_006",
+      "start_time": 1781982002590,
+      "tokens": {
+        "input": 28,
+        "output": 53
+      },
+      "tool_name": "scan_repo"
+    },
+    {
+      "agent_name": "ResearchAgent",
+      "baseline_cost_usd": 0.09,
+      "cacheability": "pure",
+      "cluster_id": "cluster_exact_summary",
+      "cost_usd": 0.09,
+      "decision": "EXECUTE",
+      "end_time": 1781982004035,
+      "input": "https://redundant.dev/examples/agent-cost-caching",
+      "input_hash": "59d4b13d4cc1",
+      "kind": "tool",
+      "latency_ms": 560,
+      "metadata": {
+        "args": {
+          "url_or_text": "https://redundant.dev/examples/agent-cost-caching"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:summarize_page",
+      "output": "Summary: Redundant wraps expensive agent calls, records spans, reuses exact duplicates, verifies semantic reuse, and reports saved cost by source call.",
+      "parent_span_id": "s_002",
+      "source_call_id": null,
+      "span_id": "s_007",
+      "start_time": 1781982003475,
+      "tokens": {
+        "input": 36,
+        "output": 49
+      },
+      "tool_name": "summarize_page"
+    },
+    {
+      "agent_name": "ResearchAgent",
+      "baseline_cost_usd": 0.12,
+      "cacheability": "pure",
+      "cluster_id": "cluster_unsafe_search_docs",
+      "cost_usd": 0.12,
+      "decision": "EXECUTE",
+      "end_time": 1781982004800,
+      "input": "Redis cache invalidation strategies for agent tool calls",
+      "input_hash": "8fa75ea00128",
+      "kind": "tool",
+      "latency_ms": 720,
+      "metadata": {
+        "args": {
+          "query": "Redis cache invalidation strategies for agent tool calls"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:search_docs",
+      "output": "For agent tool calls, Redis cache entries should include tool name, normalized input hash, cacheability class, source span, TTL, and freshness metadata.",
+      "parent_span_id": "s_002",
+      "source_call_id": null,
+      "span_id": "s_008",
+      "start_time": 1781982004080,
+      "tokens": {
+        "input": 38,
+        "output": 50
+      },
+      "tool_name": "search_docs"
+    },
+    {
+      "agent_name": "ResearchAgent",
+      "baseline_cost_usd": 0.15,
+      "cacheability": "state_bound",
+      "cluster_id": null,
+      "cost_usd": 0.15,
+      "decision": "EXECUTE",
+      "end_time": 1781982005745,
+      "input": "[{\"content\": \"You are ResearchAgent. Use Band room context, call only Redundant-wrapped tools, post concise findings, and leave useful source references for downstream agents.\", \"role\": \"system\"}, {\"content\": \"Redis is the best fit for exact reuse because stable tool inputs can map to a cache key. Redis Streams gives the live timeline. Sentry is strongest for alert routing and triage when agents repeat work or run away.\\nLangChain-style tracing helps expose repeated tool calls, but it normally reports waste after execution. Redundant should prevent safe duplicates before cost is spent.\\nRepository scan: a cached wrapper should canonicalize tool args, look up exact reuse first, ask the semantic verifier only for near matches, and always emit a span.\\nSummary: Redundant wraps expensive agent calls, records spans, reuses exact duplicates, verifies semantic reuse, and reports saved cost by source call.\\nFor agent tool calls, Redis cache entries should include tool name, normalized input hash, cacheability class, source span, TTL, and freshness metadata.\", \"role\": \"user\"}]",
+      "input_hash": "06671983c8fe",
+      "kind": "llm",
+      "latency_ms": 900,
+      "metadata": {
+        "purpose": "research_findings",
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "claude-3-5-sonnet-demo",
+      "name": "llm:research_findings",
+      "output": "Findings: Redis should handle exact cache keys and streams; semantic reuse needs verifier gating; Sentry is strongest for runaway-loop visibility.",
+      "parent_span_id": "s_002",
+      "source_call_id": null,
+      "span_id": "s_009",
+      "start_time": 1781982004845,
+      "tokens": {
+        "input": 295,
+        "output": 48
+      },
+      "tool_name": null
+    },
+    {
+      "agent_name": "ReportAgent",
+      "baseline_cost_usd": 0.0,
+      "cacheability": null,
+      "cost_usd": 0.0,
+      "decision": null,
+      "end_time": 1781982008330,
+      "input": "overlap request",
+      "input_hash": "6d8a7a67a1c2",
+      "kind": "agent",
+      "latency_ms": 2565,
+      "metadata": {
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": null,
+      "name": "agent:ReportAgent",
+      "output": "Completed overlapping report research.",
+      "parent_span_id": "s_001",
+      "span_id": "s_010",
+      "start_time": 1781982005765,
+      "tokens": null,
+      "tool_name": null
+    },
+    {
+      "agent_name": "ReportAgent",
+      "baseline_cost_usd": 0.15,
+      "cacheability": "state_bound",
+      "cluster_id": null,
+      "cost_usd": 0.15,
+      "decision": "EXECUTE",
+      "end_time": 1781982006745,
+      "input": "[{\"content\": \"You are ReportAgent. Read Band room context, deliberately ask overlapping questions, reuse safe Redundant results, and write the final recommendation.\", \"role\": \"system\"}, {\"content\": \"User: @[[23392213-ec29-4ee0-87bc-93b2cc95a3f0]] Research agent cost optimization tools, compare Redis/Sentry-style approaches, and produce a short recommendation.\\nResearchAgent: Plan: search the shared cost-optimization query, scan wrapper code patterns, summarize the canonical source, then post reusable findings for the other agents.\\nResearchAgent: Findings: Redis should handle exact cache keys and streams; semantic reuse needs verifier gating; Sentry is strongest for runaway-loop visibility.\\nResearchAgent: @ReportAgent please continue the Redundant demo by asking the overlapping questions.\", \"role\": \"user\"}]",
+      "input_hash": "ed28c40c0600",
+      "kind": "llm",
+      "latency_ms": 900,
+      "metadata": {
+        "purpose": "report_overlap_request",
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "claude-3-5-sonnet-demo",
+      "name": "llm:report_overlap_request",
+      "output": "I need to verify the shared search result, check an equivalent cache-wrapper repo topic, and compare Redis with Sentry before writing the recommendation.",
+      "parent_span_id": "s_010",
+      "source_call_id": null,
+      "span_id": "s_011",
+      "start_time": 1781982005845,
+      "tokens": {
+        "input": 228,
+        "output": 50
+      },
+      "tool_name": null
+    },
+    {
+      "agent_name": "ReportAgent",
+      "baseline_cost_usd": 0.12,
+      "cacheability": "pure",
+      "cluster_id": "cluster_exact_search_docs",
+      "cost_usd": 0.0,
+      "decision": "EXACT_REUSE",
+      "end_time": 1781982006825,
+      "input": "agent cost optimization redis sentry",
+      "input_hash": "e4f7a8cb5147",
+      "kind": "tool",
+      "latency_ms": 35,
+      "metadata": {
+        "reused_from_agent": "ResearchAgent",
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:search_docs",
+      "output": "Redis is the best fit for exact reuse because stable tool inputs can map to a cache key. Redis Streams gives the live timeline. Sentry is strongest for alert routing and triage when agents repeat work or run away.",
+      "parent_span_id": "s_010",
+      "source_call_id": "s_004",
+      "span_id": "s_012",
+      "start_time": 1781982006790,
+      "tokens": {
+        "input": 33,
+        "output": 65
+      },
+      "tool_name": "search_docs"
+    },
+    {
+      "agent_name": "ReportAgent",
+      "baseline_cost_usd": 0.16,
+      "cacheability": "pure",
+      "cluster_id": "cluster_semantic_scan_repo",
+      "cost_usd": 0.0,
+      "decision": "SEMANTIC_REUSE",
+      "end_time": 1781982006960,
+      "input": "tool cache decorator",
+      "input_hash": "a3640dfca83a",
+      "kind": "tool",
+      "latency_ms": 90,
+      "metadata": {
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+        "semantic_candidate": "cached tool wrapper",
+        "verifier_score": 0.92
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:scan_repo",
+      "output": "Repository scan: a cached wrapper should canonicalize tool args, look up exact reuse first, ask the semantic verifier only for near matches, and always emit a span.",
+      "parent_span_id": "s_010",
+      "source_call_id": "s_006",
+      "span_id": "s_013",
+      "start_time": 1781982006870,
+      "tokens": {
+        "input": 29,
+        "output": 53
+      },
+      "tool_name": "scan_repo"
+    },
+    {
+      "agent_name": "ReportAgent",
+      "baseline_cost_usd": 0.09,
+      "cacheability": "pure",
+      "cluster_id": "cluster_exact_summary",
+      "cost_usd": 0.0,
+      "decision": "EXACT_REUSE",
+      "end_time": 1781982007040,
+      "input": "https://redundant.dev/examples/agent-cost-caching",
+      "input_hash": "59d4b13d4cc1",
+      "kind": "tool",
+      "latency_ms": 35,
+      "metadata": {
+        "reused_from_agent": "ResearchAgent",
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:summarize_page",
+      "output": "Summary: Redundant wraps expensive agent calls, records spans, reuses exact duplicates, verifies semantic reuse, and reports saved cost by source call.",
+      "parent_span_id": "s_010",
+      "source_call_id": "s_007",
+      "span_id": "s_014",
+      "start_time": 1781982007005,
+      "tokens": {
+        "input": 36,
+        "output": 49
+      },
+      "tool_name": "summarize_page"
+    },
+    {
+      "agent_name": "ReportAgent",
+      "baseline_cost_usd": 0.12,
+      "cacheability": "pure",
+      "cluster_id": "cluster_unsafe_search_docs",
+      "cost_usd": 0.12,
+      "decision": "UNSAFE_SEMANTIC_BLOCK",
+      "end_time": 1781982007805,
+      "input": "Sentry alert routing strategies for runaway agents",
+      "input_hash": "91688272617e",
+      "kind": "tool",
+      "latency_ms": 720,
+      "metadata": {
+        "blocked_source_agent": "ResearchAgent",
+        "blocked_source_call_id": "s_008",
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6",
+        "verifier_score": 0.21
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:search_docs",
+      "output": "Runaway agent alerts should be grouped by run, agent, tool, and repeated input hash, then routed by owner with enough trace context to stop the loop.",
+      "parent_span_id": "s_010",
+      "source_call_id": "s_008",
+      "span_id": "s_015",
+      "start_time": 1781982007085,
+      "tokens": {
+        "input": 36,
+        "output": 49
+      },
+      "tool_name": "search_docs"
+    },
+    {
+      "agent_name": "ReportAgent",
+      "baseline_cost_usd": 0.07,
+      "cacheability": "pure",
+      "cluster_id": null,
+      "cost_usd": 0.07,
+      "decision": "EXECUTE",
+      "end_time": 1781982008330,
+      "input": "{\"tool_a\":\"Redis\",\"tool_b\":\"Sentry\"}",
+      "input_hash": "45dd1ed23cb7",
+      "kind": "tool",
+      "latency_ms": 480,
+      "metadata": {
+        "args": {
+          "tool_a": "Redis",
+          "tool_b": "Sentry"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:compare_tools",
+      "output": "Redis should own low-latency cache and stream primitives. Sentry should own incident visibility, alert routing, and follow-up workflow for repeated failures.",
+      "parent_span_id": "s_010",
+      "source_call_id": null,
+      "span_id": "s_016",
+      "start_time": 1781982007850,
+      "tokens": {
+        "input": 33,
+        "output": 51
+      },
+      "tool_name": "compare_tools"
+    },
+    {
+      "agent_name": "AuditAgent",
+      "baseline_cost_usd": 0.0,
+      "cacheability": null,
+      "cost_usd": 0.0,
+      "decision": null,
+      "end_time": 1781982009410,
+      "input": "exact duplicate audit",
+      "input_hash": "cc8a890a3901",
+      "kind": "agent",
+      "latency_ms": 1060,
+      "metadata": {
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": null,
+      "name": "agent:AuditAgent",
+      "output": "Confirmed exact duplicate audit path.",
+      "parent_span_id": "s_001",
+      "span_id": "s_017",
+      "start_time": 1781982008350,
+      "tokens": null,
+      "tool_name": null
+    },
+    {
+      "agent_name": "AuditAgent",
+      "baseline_cost_usd": 0.15,
+      "cacheability": "state_bound",
+      "cluster_id": null,
+      "cost_usd": 0.15,
+      "decision": "EXECUTE",
+      "end_time": 1781982009330,
+      "input": "[{\"content\": \"You are AuditAgent. Confirm that the exact cross-agent duplicate is visible across ResearchAgent, ReportAgent, and AuditAgent.\", \"role\": \"system\"}, {\"content\": \"User: @[[23392213-ec29-4ee0-87bc-93b2cc95a3f0]] Research agent cost optimization tools, compare Redis/Sentry-style approaches, and produce a short recommendation.\\nResearchAgent: Plan: search the shared cost-optimization query, scan wrapper code patterns, summarize the canonical source, then post reusable findings for the other agents.\\nResearchAgent: Findings: Redis should handle exact cache keys and streams; semantic reuse needs verifier gating; Sentry is strongest for runaway-loop visibility.\\nResearchAgent: @ReportAgent please continue the Redundant demo by asking the overlapping questions.\\nReportAgent: I need to verify the shared search result, check an equivalent cache-wrapper repo topic, and compare Redis with Sentry before writing the recommendation.\\nReportAgent: ReportAgent reused ResearchAgent's prior result.\\nReportAgent: Semantic reuse accepted for the tool cache decorator scan.\\nReportAgent: Verifier blocked unsafe semantic reuse; executing the Sentry-specific search instead.\\nReportAgent: Overlap check complete; I have exact reuse, semantic reuse, an unsafe block, and the Redis/Sentry comparison.\\nReportAgent: @AuditAgent please run the exact duplicate audit for the canonical search query.\\nReportAgent: @VerifierAgent please run the 12-call flaky source verification loop.\", \"role\": \"user\"}]",
+      "input_hash": "68ab894717da",
+      "kind": "llm",
+      "latency_ms": 900,
+      "metadata": {
+        "purpose": "audit_note",
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "claude-3-5-sonnet-demo",
+      "name": "llm:audit_note",
+      "output": "Audit note: I will intentionally repeat the canonical search query to prove the exact cross-agent duplicate cluster includes three agents.",
+      "parent_span_id": "s_017",
+      "source_call_id": null,
+      "span_id": "s_018",
+      "start_time": 1781982008430,
+      "tokens": {
+        "input": 399,
+        "output": 46
+      },
+      "tool_name": null
+    },
+    {
+      "agent_name": "AuditAgent",
+      "baseline_cost_usd": 0.12,
+      "cacheability": "pure",
+      "cluster_id": "cluster_exact_search_docs",
+      "cost_usd": 0.0,
+      "decision": "EXACT_REUSE",
+      "end_time": 1781982009410,
+      "input": "agent cost optimization redis sentry",
+      "input_hash": "e4f7a8cb5147",
+      "kind": "tool",
+      "latency_ms": 35,
+      "metadata": {
+        "reused_from_agent": "ResearchAgent",
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:search_docs",
+      "output": "Redis is the best fit for exact reuse because stable tool inputs can map to a cache key. Redis Streams gives the live timeline. Sentry is strongest for alert routing and triage when agents repeat work or run away.",
+      "parent_span_id": "s_017",
+      "source_call_id": "s_004",
+      "span_id": "s_019",
+      "start_time": 1781982009375,
+      "tokens": {
+        "input": 33,
+        "output": 65
+      },
+      "tool_name": "search_docs"
+    },
+    {
+      "agent_name": "VerifierAgent",
+      "baseline_cost_usd": 0.0,
+      "cacheability": null,
+      "cost_usd": 0.0,
+      "decision": null,
+      "end_time": 1781982012885,
+      "input": "flaky verifier loop",
+      "input_hash": "322f29ecf2d2",
+      "kind": "agent",
+      "latency_ms": 3455,
+      "metadata": {
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": null,
+      "name": "agent:VerifierAgent",
+      "output": "Emitted flaky verifier loop status.",
+      "parent_span_id": "s_001",
+      "span_id": "s_020",
+      "start_time": 1781982009430,
+      "tokens": null,
+      "tool_name": null
+    },
+    {
+      "agent_name": "VerifierAgent",
+      "baseline_cost_usd": 0.03,
+      "cacheability": "state_bound",
+      "cluster_id": "cluster_loop_verify_source",
+      "cost_usd": 0.03,
+      "decision": "EXECUTE",
+      "end_time": 1781982009750,
+      "input": "Redis/Sentry recommendation source quality",
+      "input_hash": "aeba4bea66ec",
+      "kind": "tool",
+      "latency_ms": 240,
+      "metadata": {
+        "args": {
+          "source_or_claim": "Redis/Sentry recommendation source quality"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:verify_source",
+      "output": "attempt 1: verifier still cannot converge on source quality for 'Redis/Sentry recommendation source quality'. Uncertainty remains unchanged at medium risk.",
+      "parent_span_id": "s_020",
+      "source_call_id": null,
+      "span_id": "s_021",
+      "start_time": 1781982009510,
+      "tokens": {
+        "input": 34,
+        "output": 50
+      },
+      "tool_name": "verify_source"
+    },
+    {
+      "agent_name": "VerifierAgent",
+      "baseline_cost_usd": 0.03,
+      "cacheability": "state_bound",
+      "cluster_id": "cluster_loop_verify_source",
+      "cost_usd": 0.03,
+      "decision": "EXECUTE",
+      "end_time": 1781982010035,
+      "input": "Redis/Sentry recommendation source quality",
+      "input_hash": "aeba4bea66ec",
+      "kind": "tool",
+      "latency_ms": 240,
+      "metadata": {
+        "args": {
+          "source_or_claim": "Redis/Sentry recommendation source quality"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:verify_source",
+      "output": "attempt 2: verifier still cannot converge on source quality for 'Redis/Sentry recommendation source quality'. Uncertainty remains unchanged at medium risk.",
+      "parent_span_id": "s_020",
+      "source_call_id": null,
+      "span_id": "s_022",
+      "start_time": 1781982009795,
+      "tokens": {
+        "input": 34,
+        "output": 50
+      },
+      "tool_name": "verify_source"
+    },
+    {
+      "agent_name": "VerifierAgent",
+      "baseline_cost_usd": 0.03,
+      "cacheability": "state_bound",
+      "cluster_id": "cluster_loop_verify_source",
+      "cost_usd": 0.03,
+      "decision": "EXECUTE",
+      "end_time": 1781982010320,
+      "input": "Redis/Sentry recommendation source quality",
+      "input_hash": "aeba4bea66ec",
+      "kind": "tool",
+      "latency_ms": 240,
+      "metadata": {
+        "args": {
+          "source_or_claim": "Redis/Sentry recommendation source quality"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:verify_source",
+      "output": "attempt 3: verifier still cannot converge on source quality for 'Redis/Sentry recommendation source quality'. Uncertainty remains unchanged at medium risk.",
+      "parent_span_id": "s_020",
+      "source_call_id": null,
+      "span_id": "s_023",
+      "start_time": 1781982010080,
+      "tokens": {
+        "input": 34,
+        "output": 50
+      },
+      "tool_name": "verify_source"
+    },
+    {
+      "agent_name": "VerifierAgent",
+      "baseline_cost_usd": 0.03,
+      "cacheability": "state_bound",
+      "cluster_id": "cluster_loop_verify_source",
+      "cost_usd": 0.03,
+      "decision": "EXECUTE",
+      "end_time": 1781982010605,
+      "input": "Redis/Sentry recommendation source quality",
+      "input_hash": "aeba4bea66ec",
+      "kind": "tool",
+      "latency_ms": 240,
+      "metadata": {
+        "args": {
+          "source_or_claim": "Redis/Sentry recommendation source quality"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:verify_source",
+      "output": "attempt 4: verifier still cannot converge on source quality for 'Redis/Sentry recommendation source quality'. Uncertainty remains unchanged at medium risk.",
+      "parent_span_id": "s_020",
+      "source_call_id": null,
+      "span_id": "s_024",
+      "start_time": 1781982010365,
+      "tokens": {
+        "input": 34,
+        "output": 50
+      },
+      "tool_name": "verify_source"
+    },
+    {
+      "agent_name": "VerifierAgent",
+      "baseline_cost_usd": 0.03,
+      "cacheability": "state_bound",
+      "cluster_id": "cluster_loop_verify_source",
+      "cost_usd": 0.03,
+      "decision": "EXECUTE",
+      "end_time": 1781982010890,
+      "input": "Redis/Sentry recommendation source quality",
+      "input_hash": "aeba4bea66ec",
+      "kind": "tool",
+      "latency_ms": 240,
+      "metadata": {
+        "args": {
+          "source_or_claim": "Redis/Sentry recommendation source quality"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:verify_source",
+      "output": "attempt 5: verifier still cannot converge on source quality for 'Redis/Sentry recommendation source quality'. Uncertainty remains unchanged at medium risk.",
+      "parent_span_id": "s_020",
+      "source_call_id": null,
+      "span_id": "s_025",
+      "start_time": 1781982010650,
+      "tokens": {
+        "input": 34,
+        "output": 50
+      },
+      "tool_name": "verify_source"
+    },
+    {
+      "agent_name": "VerifierAgent",
+      "baseline_cost_usd": 0.03,
+      "cacheability": "state_bound",
+      "cluster_id": "cluster_loop_verify_source",
+      "cost_usd": 0.03,
+      "decision": "EXECUTE",
+      "end_time": 1781982011175,
+      "input": "Redis/Sentry recommendation source quality",
+      "input_hash": "aeba4bea66ec",
+      "kind": "tool",
+      "latency_ms": 240,
+      "metadata": {
+        "args": {
+          "source_or_claim": "Redis/Sentry recommendation source quality"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:verify_source",
+      "output": "attempt 6: verifier still cannot converge on source quality for 'Redis/Sentry recommendation source quality'. Uncertainty remains unchanged at medium risk.",
+      "parent_span_id": "s_020",
+      "source_call_id": null,
+      "span_id": "s_026",
+      "start_time": 1781982010935,
+      "tokens": {
+        "input": 34,
+        "output": 50
+      },
+      "tool_name": "verify_source"
+    },
+    {
+      "agent_name": "VerifierAgent",
+      "baseline_cost_usd": 0.03,
+      "cacheability": "state_bound",
+      "cluster_id": "cluster_loop_verify_source",
+      "cost_usd": 0.03,
+      "decision": "EXECUTE",
+      "end_time": 1781982011460,
+      "input": "Redis/Sentry recommendation source quality",
+      "input_hash": "aeba4bea66ec",
+      "kind": "tool",
+      "latency_ms": 240,
+      "metadata": {
+        "args": {
+          "source_or_claim": "Redis/Sentry recommendation source quality"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:verify_source",
+      "output": "attempt 7: verifier still cannot converge on source quality for 'Redis/Sentry recommendation source quality'. Uncertainty remains unchanged at medium risk.",
+      "parent_span_id": "s_020",
+      "source_call_id": null,
+      "span_id": "s_027",
+      "start_time": 1781982011220,
+      "tokens": {
+        "input": 34,
+        "output": 50
+      },
+      "tool_name": "verify_source"
+    },
+    {
+      "agent_name": "VerifierAgent",
+      "baseline_cost_usd": 0.03,
+      "cacheability": "state_bound",
+      "cluster_id": "cluster_loop_verify_source",
+      "cost_usd": 0.03,
+      "decision": "EXECUTE",
+      "end_time": 1781982011745,
+      "input": "Redis/Sentry recommendation source quality",
+      "input_hash": "aeba4bea66ec",
+      "kind": "tool",
+      "latency_ms": 240,
+      "metadata": {
+        "args": {
+          "source_or_claim": "Redis/Sentry recommendation source quality"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:verify_source",
+      "output": "attempt 8: verifier still cannot converge on source quality for 'Redis/Sentry recommendation source quality'. Uncertainty remains unchanged at medium risk.",
+      "parent_span_id": "s_020",
+      "source_call_id": null,
+      "span_id": "s_028",
+      "start_time": 1781982011505,
+      "tokens": {
+        "input": 34,
+        "output": 50
+      },
+      "tool_name": "verify_source"
+    },
+    {
+      "agent_name": "VerifierAgent",
+      "baseline_cost_usd": 0.03,
+      "cacheability": "state_bound",
+      "cluster_id": "cluster_loop_verify_source",
+      "cost_usd": 0.03,
+      "decision": "EXECUTE",
+      "end_time": 1781982012030,
+      "input": "Redis/Sentry recommendation source quality",
+      "input_hash": "aeba4bea66ec",
+      "kind": "tool",
+      "latency_ms": 240,
+      "metadata": {
+        "args": {
+          "source_or_claim": "Redis/Sentry recommendation source quality"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:verify_source",
+      "output": "attempt 9: verifier still cannot converge on source quality for 'Redis/Sentry recommendation source quality'. Uncertainty remains unchanged at medium risk.",
+      "parent_span_id": "s_020",
+      "source_call_id": null,
+      "span_id": "s_029",
+      "start_time": 1781982011790,
+      "tokens": {
+        "input": 34,
+        "output": 50
+      },
+      "tool_name": "verify_source"
+    },
+    {
+      "agent_name": "VerifierAgent",
+      "baseline_cost_usd": 0.03,
+      "cacheability": "state_bound",
+      "cluster_id": "cluster_loop_verify_source",
+      "cost_usd": 0.03,
+      "decision": "EXECUTE",
+      "end_time": 1781982012315,
+      "input": "Redis/Sentry recommendation source quality",
+      "input_hash": "aeba4bea66ec",
+      "kind": "tool",
+      "latency_ms": 240,
+      "metadata": {
+        "args": {
+          "source_or_claim": "Redis/Sentry recommendation source quality"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:verify_source",
+      "output": "attempt 10: verifier still cannot converge on source quality for 'Redis/Sentry recommendation source quality'. Uncertainty remains unchanged at medium risk.",
+      "parent_span_id": "s_020",
+      "source_call_id": null,
+      "span_id": "s_030",
+      "start_time": 1781982012075,
+      "tokens": {
+        "input": 34,
+        "output": 51
+      },
+      "tool_name": "verify_source"
+    },
+    {
+      "agent_name": "VerifierAgent",
+      "baseline_cost_usd": 0.03,
+      "cacheability": "state_bound",
+      "cluster_id": "cluster_loop_verify_source",
+      "cost_usd": 0.03,
+      "decision": "EXECUTE",
+      "end_time": 1781982012600,
+      "input": "Redis/Sentry recommendation source quality",
+      "input_hash": "aeba4bea66ec",
+      "kind": "tool",
+      "latency_ms": 240,
+      "metadata": {
+        "args": {
+          "source_or_claim": "Redis/Sentry recommendation source quality"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:verify_source",
+      "output": "attempt 11: verifier still cannot converge on source quality for 'Redis/Sentry recommendation source quality'. Uncertainty remains unchanged at medium risk.",
+      "parent_span_id": "s_020",
+      "source_call_id": null,
+      "span_id": "s_031",
+      "start_time": 1781982012360,
+      "tokens": {
+        "input": 34,
+        "output": 51
+      },
+      "tool_name": "verify_source"
+    },
+    {
+      "agent_name": "VerifierAgent",
+      "baseline_cost_usd": 0.03,
+      "cacheability": "state_bound",
+      "cluster_id": "cluster_loop_verify_source",
+      "cost_usd": 0.03,
+      "decision": "EXECUTE",
+      "end_time": 1781982012885,
+      "input": "Redis/Sentry recommendation source quality",
+      "input_hash": "aeba4bea66ec",
+      "kind": "tool",
+      "latency_ms": 240,
+      "metadata": {
+        "args": {
+          "source_or_claim": "Redis/Sentry recommendation source quality"
+        },
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "scripted-tool-v1",
+      "name": "tool:verify_source",
+      "output": "attempt 12: verifier still cannot converge on source quality for 'Redis/Sentry recommendation source quality'. Uncertainty remains unchanged at medium risk.",
+      "parent_span_id": "s_020",
+      "source_call_id": null,
+      "span_id": "s_032",
+      "start_time": 1781982012645,
+      "tokens": {
+        "input": 34,
+        "output": 51
+      },
+      "tool_name": "verify_source"
+    },
+    {
+      "agent_name": "ReportAgent",
+      "baseline_cost_usd": 0.0,
+      "cacheability": null,
+      "cost_usd": 0.0,
+      "decision": null,
+      "end_time": 1781982013885,
+      "input": "final recommendation",
+      "input_hash": "96fd86b45d1a",
+      "kind": "agent",
+      "latency_ms": 980,
+      "metadata": {
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": null,
+      "name": "agent:ReportAgent",
+      "output": "Posted final recommendation.",
+      "parent_span_id": "s_001",
+      "span_id": "s_033",
+      "start_time": 1781982012905,
+      "tokens": null,
+      "tool_name": null
+    },
+    {
+      "agent_name": "ReportAgent",
+      "baseline_cost_usd": 0.15,
+      "cacheability": "state_bound",
+      "cluster_id": null,
+      "cost_usd": 0.15,
+      "decision": "EXECUTE",
+      "end_time": 1781982013885,
+      "input": "[{\"content\": \"You are ReportAgent. Read Band room context, deliberately ask overlapping questions, reuse safe Redundant results, and write the final recommendation.\", \"role\": \"system\"}, {\"content\": \"User: @[[23392213-ec29-4ee0-87bc-93b2cc95a3f0]] Research agent cost optimization tools, compare Redis/Sentry-style approaches, and produce a short recommendation.\\nResearchAgent: Plan: search the shared cost-optimization query, scan wrapper code patterns, summarize the canonical source, then post reusable findings for the other agents.\\nResearchAgent: Findings: Redis should handle exact cache keys and streams; semantic reuse needs verifier gating; Sentry is strongest for runaway-loop visibility.\\nResearchAgent: @ReportAgent please continue the Redundant demo by asking the overlapping questions.\\nReportAgent: I need to verify the shared search result, check an equivalent cache-wrapper repo topic, and compare Redis with Sentry before writing the recommendation.\\nReportAgent: ReportAgent reused ResearchAgent's prior result.\\nReportAgent: Semantic reuse accepted for the tool cache decorator scan.\\nReportAgent: Verifier blocked unsafe semantic reuse; executing the Sentry-specific search instead.\\nReportAgent: Overlap check complete; I have exact reuse, semantic reuse, an unsafe block, and the Redis/Sentry comparison.\\nReportAgent: @AuditAgent please run the exact duplicate audit for the canonical search query.\\nReportAgent: @VerifierAgent please run the 12-call flaky source verification loop.\\nAuditAgent: Audit note: I will intentionally repeat the canonical search query to prove the exact cross-agent duplicate cluster includes three agents.\\nAuditAgent: Audit duplicate check decision: EXACT_REUSE.\\nVerifierAgent: Starting repeated source verification; this intentionally should not converge.\\nVerifierAgent: RUNAWAY_LOOP_ALERT: verify_source repeated 12 times without convergence.\\nVerifierAgent: @ReportAgent VerifierAgent is done; please write the final recommendation.\", \"role\": \"user\"}]",
+      "input_hash": "b6c6328fd760",
+      "kind": "llm",
+      "latency_ms": 900,
+      "metadata": {
+        "purpose": "final_recommendation",
+        "room_id": "band-live-483fc075-5901-4bda-b892-0c52ff7fd2b6"
+      },
+      "model": "claude-3-5-sonnet-demo",
+      "name": "llm:final_recommendation",
+      "output": "Recommendation: use Redis for exact and semantic reuse metadata plus Redis Streams for the live feed, gate semantic matches with verifier labels, and route runaway loops to Sentry.",
+      "parent_span_id": "s_033",
+      "source_call_id": null,
+      "span_id": "s_034",
+      "start_time": 1781982012985,
+      "tokens": {
+        "input": 526,
+        "output": 57
+      },
+      "tool_name": null
+    }
+  ]
+}
