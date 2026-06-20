@@ -11,7 +11,7 @@ Base stack:
 - Band
 - Redis
 - Terac
-- Arize
+- Redis Streams
 - Sentry
 - The Token Company
 - Anthropic
@@ -20,11 +20,12 @@ Reach goals:
 
 - Fetch AI for an Agentverse/ASI:One auditor agent
 - Browserbase for realistic browser-agent waste
+- Arize for optional trace/eval polish
 
 Target track:
 
 - Primary: Ddoski's Toolbox / developer tooling
-- Sponsor emphasis: Band, Redis, Terac, Arize, Sentry, The Token Company, Anthropic
+- Sponsor emphasis: Band, Redis/Redis Streams, Terac, Sentry, The Token Company, Anthropic, and optional Arize
 
 ## Product Behavior
 
@@ -71,7 +72,7 @@ Every decision is logged with cost, latency, confidence, source call, and explan
 4. Redis checks exact cache first, then vector similarity.
 5. A Terac-trained verifier approves or rejects semantic reuse candidates.
 6. If reuse is unsafe but the prompt is bloated, The Token Company compression path is applied.
-7. Executed/reused calls are logged to Redundant, Arize, and optionally Sentry.
+7. Executed/reused calls are emitted to Redis Streams for the live UI and optionally mirrored to Sentry.
 8. The UI shows a live burn meter, duplicate clusters, savings, and suggested fixes.
 
 ## Required Call Schema
@@ -160,7 +161,7 @@ Build:
 
 Demo task:
 
-> Research agent cost optimization tools, compare Redis/Arize/Sentry-style approaches, and produce a short recommendation.
+> Research agent cost optimization tools, compare Redis/Sentry-style approaches, and produce a short recommendation.
 
 Scripted waste:
 
@@ -237,17 +238,19 @@ Build UI views:
   - replace repeated LLM classifier with embedding lookup
 - Sponsor tabs:
   - Redis cache/vector evidence
+  - Redis Streams live event feed
   - Terac verifier/eval
-  - Arize trace comparison
+  - Optional Arize trace comparison
   - Sentry issues
   - Band agent collaboration
 
 Integrations:
 
-- Arize: log traces for baseline run and Redundant run.
+- Redis Streams: base product event bus for attempted calls, decisions, savings, duplicate clusters, and live UI updates.
 - Sentry: create/report issues for duplicate clusters or agent loops.
 - The Token Company: compress bloated prompts when reuse is unsafe.
 - Anthropic: use Claude and include prompt-cache-layout recommendations.
+- Arize: optional add-on for baseline vs optimized trace/eval comparison if time allows.
 
 Acceptance:
 
@@ -258,12 +261,15 @@ Acceptance:
 ## Sponsor Integration Plan
 
 - Band: base multi-agent system; at least two agents collaborate through Band.
-- Redis: exact cache, vector search, TTL/staleness, duplicate clusters.
+- Redis: exact cache, vector search, TTL/staleness, duplicate clusters, and Redis Streams for live runtime events.
 - Terac: human labels for semantic reuse safety verifier.
-- Arize: baseline vs optimized traces/evals.
 - Sentry: waste/loop issues with dollar and latency impact.
 - The Token Company: compression path for unsafe-to-cache bloated prompts.
 - Anthropic: Claude calls plus prompt-cache optimization suggestions.
+
+Optional add-on:
+
+- Arize: baseline vs optimized traces/evals if the core Redis Streams-based product is already stable.
 
 Avoid adding:
 
@@ -309,6 +315,21 @@ Acceptance:
 - Demo shows Redundant saving repeated browser-agent work.
 - Browserbase is central to at least one visible workflow, not just a background fetch.
 
+## Reach Goal: Arize
+
+Build only after the Redis Streams live event path is stable.
+
+Implement:
+
+- Export baseline and Redundant-enabled run traces from the Redis Streams event log.
+- Compare task quality, unsafe reuse rate, cost, latency, and duplicate-call rate.
+- Use Arize as an external eval/trace view, not as the base event bus.
+
+Acceptance:
+
+- Arize view mirrors the same run IDs and metrics shown in Redundant.
+- Demo can show trace/eval comparison, but the core product still works if Arize is unavailable.
+
 ## Demo Timeline
 
 1. Show baseline Band run with waste enabled.
@@ -317,7 +338,7 @@ Acceptance:
 4. Turn on Redundant.
 5. Rerun the same task.
 6. Show exact reuse, semantic reuse, cross-agent reuse, unsafe semantic block, and compression path.
-7. Open Arize trace comparison.
+7. Open the Redis Streams-backed live event/trace view.
 8. Show Sentry waste issue.
 9. End on final report:
    - attempted calls, e.g. 74
@@ -348,7 +369,7 @@ Demo fallback:
 
 - Record one complete trace JSON.
 - UI can replay trace if external APIs fail.
-- Sentry/Arize screenshots or mocked exports are acceptable fallback only after the live path is attempted.
+  - Sentry screenshots or optional Arize exports are acceptable fallback only after the live path is attempted.
 
 Hard no:
 
@@ -364,12 +385,12 @@ Hard no:
 - UI clearly shows money and latency saved.
 - Sponsor story feels like one product:
 
-> Band agents collaborate, Redis finds duplicate work, Terac verifies safe reuse, The Token Company compresses unsafe calls, Arize/Sentry prove and report the impact.
+> Band agents collaborate, Redis finds duplicate work, Redis Streams powers the live runtime feed, Terac verifies safe reuse, The Token Company compresses unsafe calls, and Sentry reports the impact.
 
 ## Assumptions
 
 - Four people work in parallel.
 - No more sponsors are added to the base stack.
-- Fetch AI and Browserbase remain reach goals.
+- Fetch AI, Browserbase, and Arize remain reach/add-on goals.
 - The product name is Redundant unless the team chooses a replacement before implementation.
 - Primary judging pitch is developer-tooling impact, not consumer UX.
