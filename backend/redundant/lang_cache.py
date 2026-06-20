@@ -1,76 +1,43 @@
-"""Routing brain (§7.4) + LangCache (§7.5) per DESIGN_redis.md.
+"""LangCache (§7.5 of DESIGN_redis.md) — DIY exact-hash Redis SET/GET.
 
-Routing brain: mutates Finding.severity / route based on R_max, convergence,
-and side-effect status.
+Key scheme matches RedisStore._exact_key so both paths share the same cache:
+  redundant:cache:exact:{scope_key}:{input_hash}
 
-LangCache: exact-hash Redis SET/GET.  Falls back to an in-process dict when
-Redis is unavailable so the demo never hard-crashes.
+Falls back to an in-process dict when Redis is unavailable so the demo never
+hard-crashes.
+
+Routing brain has moved to redundant.routing.
 """
 from __future__ import annotations
 from typing import Optional
 
-from redundant.detection import R_MAX, READ_ONLY_TOOLS
+from redundant.config import SETTINGS
+from redundant.detection import READ_ONLY_TOOLS
 from redundant.span_schema import Finding
 
-# Cache TTL in seconds for read-only tool results.
 _CACHE_TTL = 24 * 3600
+_NS = SETTINGS.namespace
 
-
-# ---------------------------------------------------------------------------
-# Routing brain
-# ---------------------------------------------------------------------------
-
-def route_findings(findings: list[Finding]) -> list[Finding]:
-    """Apply routing rules to each finding in-place and return the list."""
-    for f in findings:
-        _route_one(f)
-    return findings
-
-
-def _route_one(f: Finding) -> None:
-    # Any finding whose count hits R_max is runaway regardless of other signals.
-    if f.count >= R_MAX:
-        f.severity = "runaway"
-        f.route = "alert"
-        return
-
-    # Non-converging outputs (outputs changing each repeat) = reliability incident.
-    if f.evidence.convergence == "none":
-        f.severity = "runaway"
-        f.route = "alert"
-        return
-
-    # Side-effecting tools are never cacheable; escalate to alert.
-    if not f.cacheable:
-        f.severity = "runaway"
-        f.route = "alert"
-        return
-
-    # Default: wasteful but cacheable.
-    f.severity = "wasteful"
-    f.route = "cache"
-
-
-# ---------------------------------------------------------------------------
-# LangCache — DIY exact-hash Redis SET/GET (§7.5 fallback path)
-# ---------------------------------------------------------------------------
 
 class LangCache:
-    """Exact-hash cache keyed on (tool_name, input_hash).
+    """Exact-hash cache keyed on (scope_key, input_hash).
 
-    Uses Redis when available; falls back to an in-process dict.
+    scope_key defaults to the tool name for the /findings pre-warm path so
+    lookups from /findings/cache-lookup (which only have tool_name + input_hash)
+    still resolve correctly.
     """
 
-    def __init__(self, redis_client=None, ttl: int = _CACHE_TTL):
+    def __init__(self, redis_client=None, ttl: int = _CACHE_TTL, namespace: str = _NS):
         self._r = redis_client
         self._ttl = ttl
+        self._ns = namespace
         self._local: dict[str, str] = {}
 
-    def _key(self, tool_name: str, input_hash: str) -> str:
-        return f"cache:{tool_name}:{input_hash}"
+    def _key(self, scope_key: str, input_hash: str) -> str:
+        return f"{self._ns}:cache:exact:{scope_key}:{input_hash}"
 
     def get(self, tool_name: str, input_hash: str) -> Optional[str]:
-        """Return cached result or None (staleness gate: TTL enforced by Redis)."""
+        """Return cached result or None. scope_key = tool_name for simple lookups."""
         key = self._key(tool_name, input_hash)
         if self._r is not None:
             try:
@@ -85,7 +52,7 @@ class LangCache:
     def put(self, tool_name: str, input_hash: str, result: str) -> None:
         """Cache result only if tool is in the read-only allowlist (cacheability gate)."""
         if tool_name not in READ_ONLY_TOOLS:
-            return  # side-effecting: never store
+            return
         key = self._key(tool_name, input_hash)
         if self._r is not None:
             try:
@@ -95,8 +62,7 @@ class LangCache:
                 pass
         self._local[key] = result
 
-    def populate_from_findings(self, findings: list[Finding],
-                                spans_by_id: dict) -> int:
+    def populate_from_findings(self, findings: list[Finding], spans_by_id: dict) -> int:
         """Write cacheable findings' representative results into the cache.
         Returns the number of entries written."""
         written = 0
@@ -104,8 +70,12 @@ class LangCache:
             if f.route != "cache":
                 continue
             rep = spans_by_id.get(f.representative_span_id)
-            if rep is None or not rep.tool_name:
+            if rep is None:
                 continue
-            self.put(rep.tool_name, rep.input_hash, rep.output)
+            # LLM spans have no tool_name; use the span name as the cache key.
+            tool_name = rep.tool_name or rep.name
+            if not tool_name:
+                continue
+            self.put(tool_name, rep.input_hash, rep.output)
             written += 1
         return written

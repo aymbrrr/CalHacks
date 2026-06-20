@@ -184,10 +184,10 @@ class RedisStore:
 
 
 def _escape_tag(value: str) -> str:
-    # RediSearch tag values must escape separators like ':' and '-'.
+    # RediSearch tag values must escape these special characters.
     out = []
     for ch in value:
-        if ch in {":", "-", " ", ".", "/", "{", "}", "|", "@"}:
+        if ch in {":", "-", " ", ".", "/", "{", "}", "|", "@", "(", ")"}:
             out.append("\\" + ch)
         else:
             out.append(ch)

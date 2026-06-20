@@ -28,7 +28,8 @@ from redundant.report import build_report
 from redundant.schema import Run
 from redundant.trace_ingest import load_spans
 from redundant.detection import analyze
-from redundant.lang_cache import LangCache, route_findings
+from redundant.lang_cache import LangCache
+from redundant.routing import route_findings
 
 try:
     from redundant.redis_store import RedisStore

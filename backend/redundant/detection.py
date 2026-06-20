@@ -77,8 +77,8 @@ def detect_repetition(spans: list[Span]) -> list[Finding]:
             description=desc,
             token_cost=_sum_tokens(group[1:]),  # wasted = all but first
             dollar_cost=round(wasted_cost, 6),
-            severity="runaway" if len(group) >= R_MAX else "wasteful",
-            route="alert" if len(group) >= R_MAX else "cache",
+            severity="wasteful",
+            route="cache",
             cacheable=(tool_name in READ_ONLY_TOOLS),
             evidence=Evidence(convergence="converged" if len(set(s.output for s in group)) == 1 else "none"),
         ))
@@ -107,7 +107,7 @@ def detect_cycles(spans: list[Span]) -> list[Finding]:
             continue
         seen.add(key)
         cycle_spans = [span_map[n] for n in cycle if n in span_map]
-        cost = sum(_span_cost(s) for s in cycle_spans) * (len(cycle) - 1)
+        cost = sum(_span_cost(s) for s in cycle_spans)
         findings.append(Finding(
             finding_id=f"f_{uuid.uuid4().hex[:6]}",
             type="cycle",
@@ -117,8 +117,8 @@ def detect_cycles(spans: list[Span]) -> list[Finding]:
             description=f"Execution cycle detected: {' -> '.join(cycle)} -> {cycle[0]}",
             token_cost=_sum_tokens(cycle_spans),
             dollar_cost=round(cost, 6),
-            severity="runaway",
-            route="alert",
+            severity="wasteful",
+            route="cache",
             cacheable=False,
             evidence=Evidence(cycle_path=cycle + [cycle[0]], convergence="none"),
         ))
