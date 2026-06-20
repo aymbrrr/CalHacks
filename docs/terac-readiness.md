@@ -102,6 +102,8 @@ Main resources to use:
 
 ## Redundant Annotation Task
 
+Detailed task design: [Terac task design](terac-task-design.md).
+
 Task name:
 
 ```text
@@ -287,6 +289,7 @@ Terac-gated verifier:
 
 ## Implementation Notes
 
+- Hold the credit request until the annotation task design is agreed by the team.
 - Do not wait for Terac to finish before building the rest of Redundant.
 - Build the annotation UI and seed dataset first.
 - Feed Terac results into the same `TeracReuseLabel` shape.

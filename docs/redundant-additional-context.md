@@ -286,6 +286,7 @@ Acceptance:
 Owner goal: make semantic caching trustworthy, not hand-wavy.
 
 Setup reference: [Terac readiness checklist](terac-readiness.md).
+Task design: [Terac task design](terac-task-design.md).
 
 Build:
 
