@@ -286,7 +286,9 @@ Owner goal: make the demo legible and prize-ready.
 The dashboard will be a browser web app and we will pivot to an electron dashboard if extra time to
 make it look more like an installed product.
 
-The theme will be dark, terminal vibes, clean font, information forward, fire graph, different colors for different status in the graph. Easy to read costs saved information
+The theme will be dark, terminal vibes, clean font, information forward, flame graph, different colors for different status in the graph. Easy to read costs saved information
+
+Focus on demo value for all components, if no demo value, not a priority in the ui
 
 Build UI views:
 - Live run timeline:
@@ -331,9 +333,6 @@ Acceptance:
 - Judge can understand value in 30 seconds from UI.
 - Final report can be screenshotted for Devpost.
 - Demo works with live run or replayed trace fallback.
-
-Pitch
-- Create a one-liner and pitch for judging presentation
 
 Devpost
 - Elevator pitch
