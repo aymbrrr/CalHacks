@@ -1,0 +1,8 @@
+[project]
+name = "redundant-calhacks"
+version = "0.1.0"
+description = "Redundant: multi-agent cost firewall demo with labelable cache-reuse data generation."
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Redundant</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <h1>Redundant</h1>
+          <p>Multi-agent cost firewall with live labelable data generation.</p>
+        </div>
+        <div class="actions">
+          <button id="runDemo">Run Demo</button>
+          <button id="refreshDataset">Refresh Dataset</button>
+        </div>
+      </section>
+
+      <section class="metrics" aria-label="Run metrics">
+        <article>
+          <span>Attempted</span>
+          <strong id="attempted">0</strong>
+        </article>
+        <article>
+          <span>Saved</span>
+          <strong id="saved">$0.00</strong>
+        </article>
+        <article>
+          <span>Label Items</span>
+          <strong id="labelItems">0</strong>
+        </article>
+        <article>
+          <span>Pure LLM Items</span>
+          <strong id="llmItems">0</strong>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <header>
+            <h2>Live Timeline</h2>
+            <span id="runId">No run yet</span>
+          </header>
+          <div id="events" class="timeline"></div>
+        </article>
+
+        <article class="panel">
+          <header>
+            <h2>Dataset</h2>
+            <a href="/api/dataset/export.jsonl">Export JSONL</a>
+          </header>
+          <pre id="datasetPreview">[]</pre>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <header><h2>Duplicate Clusters</h2></header>
+          <div id="clusters" class="list"></div>
+        </article>
+        <article class="panel">
+          <header><h2>Suggested Fixes</h2></header>
+          <div id="fixes" class="list"></div>
+        </article>
+      </section>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
