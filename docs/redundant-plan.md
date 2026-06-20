@@ -283,6 +283,11 @@ Acceptance:
 ### 4. Dashboard + Sponsor Polish + Pitch
 Owner goal: make the demo legible and prize-ready.
 
+The dashboard will be a browser web app and we will pivot to an electron dashboard if extra time to
+make it look more like an installed product.
+
+The theme will be dark, terminal vibes, clean font, information forward, fire graph, different colors for different status in the graph. Easy to read costs saved information
+
 Build UI views:
 - Live run timeline:
   - attempted call
