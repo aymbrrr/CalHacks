@@ -1,0 +1,19 @@
+# Copy this file to agent_config.yaml and fill in the values from Band.
+# Do not commit agent_config.yaml; it contains live API keys.
+
+research_agent:
+  agent_id: "<research-agent-uuid>"
+  api_key: "<research-agent-api-key>"
+
+report_agent:
+  agent_id: "<report-agent-uuid>"
+  api_key: "<report-agent-api-key>"
+
+audit_agent:
+  agent_id: "<audit-agent-uuid>"
+  api_key: "<audit-agent-api-key>"
+
+verifier_agent:
+  agent_id: "<verifier-agent-uuid>"
+  api_key: "<verifier-agent-api-key>"
+

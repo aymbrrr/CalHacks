@@ -1,5 +1,18 @@
 # Band Multi-Agent Redundant Demo
 
+## Real Band Mode (live agents)
+
+1. Copy credentials into `agent_config.yaml` at the repo root (see `agent_config.example.yaml`).
+2. Run:
+   ```bash
+   python demos/band/run_real_band_agents.py
+   ```
+3. Go to the Band chat room where the four remote agents are members and send:
+   ```
+   @ResearchAgent Research agent cost optimization tools, compare Redis/Sentry-style approaches, and produce a short recommendation.
+   ```
+4. Agent replies appear in Band chat; the Redundant trace is written to `demos/band/traces/band_demo_real_band_trace.json`.
+
 This is Dev 2's deterministic Band-facing workflow for the Redundant demo. It uses a local `FallbackBandRoom` so the flow works without live Band credentials, while keeping the Band room transcript, agent names, wrapper payload shapes, trace spans, decision events, and replay path stable.
 
 ## Commands
