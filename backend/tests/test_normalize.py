@@ -42,9 +42,20 @@ def test_messages_model_matters():
 
 
 def test_messages_block_content_flattened():
+    # Anthropic block content flattens to the same form as the equivalent plain
+    # string. Case/whitespace are preserved for LLM content (see normalize_messages),
+    # so the two sides must match exactly, not just case-insensitively.
     a = normalize_messages([{"role": "user", "content": [{"type": "text", "text": "Hi There"}]}])
-    b = normalize_messages([{"role": "user", "content": "hi there"}])
+    b = normalize_messages([{"role": "user", "content": "Hi There"}])
     assert a == b
+
+
+def test_messages_content_case_preserved():
+    # Issue #12: LLM prompts differing only in case must NOT collapse to the same
+    # cache identity (that would return a different intended answer).
+    a = normalize_messages([{"role": "user", "content": "Hi There"}])
+    b = normalize_messages([{"role": "user", "content": "hi there"}])
+    assert a != b
 
 
 def test_scope_is_run_scoped_not_agent_scoped():

@@ -129,6 +129,7 @@ class Redundant:
             state_fingerprint=(metadata or {}).get("state_fingerprint"),
             execute=lambda msgs=messages: self._call_anthropic(msgs, model),
             model=model,
+            compress_messages=messages,
         )
 
     # --- core orchestration -------------------------------------------------
@@ -143,23 +144,25 @@ class Redundant:
         state_fingerprint: Optional[str],
         execute,
         model: Optional[str],
+        compress_messages: Optional[list[dict[str, Any]]] = None,
     ) -> RedundantEvent:
         scope = scope_key(self.run_id, cacheability, state_fingerprint)
         input_hash = compute_hash(scope, normalized)
         call_id = str(uuid.uuid4())
 
-        embedding = embed_list(normalized, self.s)
-
-        # Baseline mode: firewall off — always execute, no reuse/savings.
+        # Baseline mode: firewall off — always execute, no reuse/savings. Skip the
+        # embedding entirely (it would be an unused, possibly paid, OpenAI call).
         if not self.enabled:
             return self._finalize(
                 decision=DecisionResult(Decision.EXECUTE, "Baseline run: firewall disabled."),
                 agent_id=agent_id, call_id=call_id, call_type=call_type, tool_name=tool_name,
                 cacheability=cacheability, normalized=normalized, input_hash=input_hash,
-                input_tokens=input_tokens, embedding=embedding, scope=scope,
+                input_tokens=input_tokens, embedding=None, scope=scope,
                 state_fingerprint=state_fingerprint, model=model, exact=None,
-                candidates=[], execute=execute,
+                candidates=[], execute=execute, compress_messages=compress_messages,
             )
+
+        embedding = embed_list(normalized, self.s)
 
         # Lookups.
         exact = self.store.get_exact(scope, input_hash)
@@ -212,12 +215,13 @@ class Redundant:
             exact=exact,
             candidates=candidates,
             execute=execute,
+            compress_messages=compress_messages,
         )
 
     def _finalize(
         self, decision: DecisionResult, agent_id, call_id, call_type, tool_name,
         cacheability, normalized, input_hash, input_tokens, embedding, scope,
-        state_fingerprint, model, exact, candidates, execute,
+        state_fingerprint, model, exact, candidates, execute, compress_messages=None,
     ) -> RedundantEvent:
         d = decision.decision
         output: Optional[str] = None
@@ -249,11 +253,17 @@ class Redundant:
         else:
             # EXECUTE or COMPRESS_AND_EXECUTE: do the real work and measure.
             messages_in_tokens = input_tokens
-            if d == Decision.COMPRESS_AND_EXECUTE and call_type == CallType.LLM:
-                # Compression seam only meaningful for llm message payloads.
-                pass
+            exec_fn = execute
+            if (d == Decision.COMPRESS_AND_EXECUTE and call_type == CallType.LLM
+                    and compress_messages is not None):
+                # Compression seam (Chunk 4 / Token Company). Compress the bloated
+                # context before executing and credit the avoided input tokens.
+                comp = self.compressor.compress(compress_messages)
+                messages_in_tokens = comp.tokens_after
+                saved["saved_tokens"] += comp.saved_tokens
+                exec_fn = lambda msgs=comp.messages: self._call_anthropic(msgs, model or self.s.default_model)
             start = datetime.now(timezone.utc)
-            output = execute()
+            output = exec_fn()
             latency_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000) or \
                 default_latency_ms(call_type.value)
             out_tokens = count_tokens(output or "")
@@ -270,7 +280,9 @@ class Redundant:
             reuse_source_call_id=decision.source_call_id, verifier_score=decision.verifier_score,
             explanation=decision.explanation,
         )
-        if d in (Decision.EXECUTE, Decision.COMPRESS_AND_EXECUTE):
+        # Baseline mode (firewall off) never writes to the cache/index: it only
+        # measures raw spend and must not seed reuse for later runs.
+        if self.enabled and d in (Decision.EXECUTE, Decision.COMPRESS_AND_EXECUTE):
             try:
                 self.store.put_exact(scope, record)
                 self.store.index_call(scope, record)

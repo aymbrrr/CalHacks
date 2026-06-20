@@ -18,6 +18,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
@@ -144,7 +145,11 @@ async def replay(run_id: str) -> Run:
     def _do():
         import time
 
-        for ev in source_events:
+        for src in source_events:
+            # Copy before mutating: with the in-memory store, read_events returns
+            # the original run's live event objects; mutating them in place would
+            # corrupt the source run.
+            ev = src.model_copy()
             ev.run_id = new_id
             ev.event_id = "pending"
             store.emit_event(ev)
@@ -167,13 +172,10 @@ async def health():
 # /findings — Redis-centric trace analysis (DESIGN_redis.md)
 # ---------------------------------------------------------------------------
 
-@app.get("/findings")
-async def get_findings(run_id: str = "", json_path: str = ""):
-    """Analyze a trace and return Findings[].
+def _compute_findings(run_id: str, json_path: str) -> dict:
+    """Blocking trace analysis + cache pre-warm + Sentry dispatch.
 
-    Query params:
-      run_id    — read from Redis Stream trace:{run_id}
-      json_path — path to a local frozen trace JSON (defaults to demo_trace.json)
+    Runs off the event loop (network I/O to Redis/Sentry, CPU-bound graph work).
     """
     store = get_store()
     redis_client = getattr(store, "r", None)
@@ -214,6 +216,19 @@ async def get_findings(run_id: str = "", json_path: str = ""):
         "alerts_fired": alerts_fired,
         "span_count": len(spans),
     }
+
+
+@app.get("/findings")
+async def get_findings(run_id: str = "", json_path: str = ""):
+    """Analyze a trace and return Findings[].
+
+    Query params:
+      run_id    — read from Redis Stream trace:{run_id}
+      json_path — path to a local frozen trace JSON (defaults to demo_trace.json)
+    """
+    # Offload the blocking work (Redis/Sentry I/O + graph analysis) so it doesn't
+    # stall the event loop.
+    return await run_in_threadpool(_compute_findings, run_id, json_path)
 
 
 @app.get("/findings/cache-lookup")

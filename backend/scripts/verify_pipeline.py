@@ -1,6 +1,7 @@
 from redundant.trace_ingest import load_spans
 from redundant.detection import analyze
-from redundant.lang_cache import LangCache, route_findings
+from redundant.lang_cache import LangCache
+from redundant.routing import route_findings
 
 spans = load_spans()
 result = analyze(spans)

@@ -8,21 +8,19 @@ from collections import defaultdict
 
 import networkx as nx
 
+from redundant.config import MODEL_PRICING, ModelPrice, SETTINGS
 from redundant.span_schema import Evidence, Finding, Span, TokenCost
 
 # ---------------------------------------------------------------------------
 # Price table (USD per 1M tokens) — §7.3
+# Single source of truth is config.MODEL_PRICING; gpt-* spans (which may appear
+# in ingested traces) fall back to the mid-tier default below.
 # ---------------------------------------------------------------------------
-_PRICE: dict[str, tuple[float, float]] = {
-    "gpt-4o":       (5.0, 15.0),
-    "gpt-4o-mini":  (0.15, 0.6),
-    "claude-opus-4-8":  (15.0, 75.0),
-    "claude-sonnet-4-6": (3.0, 15.0),
-    "claude-haiku-4-5":  (0.80, 4.0),
-}
-_DEFAULT_PRICE = (3.0, 15.0)
+_DEFAULT_PRICE = ModelPrice(3.0, 15.0)
 
-R_MAX = 10  # repetition count that tips "runaway"
+# Repetition count that tips "runaway". Sourced from Settings so routing and the
+# Sentry arm agree on the threshold (override via the R_MAX env var).
+R_MAX = SETTINGS.r_max
 
 # Read-only tool allowlist for cacheability gate
 READ_ONLY_TOOLS = {"web_search", "search_docs", "scan_repo", "summarize_page",
@@ -30,10 +28,10 @@ READ_ONLY_TOOLS = {"web_search", "search_docs", "scan_repo", "summarize_page",
 
 
 def _span_cost(span: Span) -> float:
-    price = _PRICE.get(span.model or "", _DEFAULT_PRICE)
+    price = MODEL_PRICING.get(span.model or "", _DEFAULT_PRICE)
     return round(
-        span.tokens.input / 1_000_000 * price[0]
-        + span.tokens.output / 1_000_000 * price[1],
+        span.tokens.input / 1_000_000 * price.input_per_mtok
+        + span.tokens.output / 1_000_000 * price.output_per_mtok,
         6,
     )
 

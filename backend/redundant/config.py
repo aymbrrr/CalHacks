@@ -28,6 +28,9 @@ MODEL_PRICING: dict[str, ModelPrice] = {
     "claude-opus-4-8": ModelPrice(15.0, 75.0),
     "claude-sonnet-4-6": ModelPrice(3.0, 15.0),
     "claude-haiku-4-5": ModelPrice(0.80, 4.0),
+    # OpenAI chat models (may appear in ingested traces).
+    "gpt-4o": ModelPrice(5.0, 15.0),
+    "gpt-4o-mini": ModelPrice(0.15, 0.6),
     # Embeddings (input only); output cost is 0.
     "text-embedding-3-small": ModelPrice(0.02, 0.0),
 }

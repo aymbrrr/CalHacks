@@ -62,6 +62,12 @@ def normalize_messages(messages: list[dict[str, Any]], model: str | None = None)
 
     Model is included because identical messages to different models are
     different calls; system/user roles are preserved in order.
+
+    Unlike tool args, message content is NOT lowercased or whitespace-collapsed:
+    for an LLM, case and spacing are semantically meaningful, so prompts that
+    differ only in those should not collapse to the same exact-cache hash (that
+    would return a different model's intended answer). Only outer whitespace is
+    trimmed. Near-duplicates are still caught by the semantic (vector) path.
     """
     canon_msgs = []
     for m in messages or []:
@@ -76,7 +82,7 @@ def normalize_messages(messages: list[dict[str, Any]], model: str | None = None)
                 else:
                     parts.append(str(block))
             content = " ".join(parts)
-        canon_msgs.append({"role": role, "content": _canon_scalar(str(content))})
+        canon_msgs.append({"role": role, "content": str(content).strip()})
     payload = {"model": (model or "").strip().lower(), "messages": canon_msgs}
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 

@@ -57,13 +57,13 @@ def reset() -> None:
     _FIRED.clear()
 
 
-def _already_fired(run_id: str, finding_id: str, redis_client) -> bool:
-    """Atomically mark (run_id, finding_id) fired; True if it was already fired."""
+def _already_fired(run_id: str, dedup_id: str, redis_client) -> bool:
+    """Atomically mark (run_id, dedup_id) fired; True if it was already fired."""
     key = f"sentry:fired:{run_id}"
     if redis_client is not None:
         try:
             # SADD returns 1 for a new member, 0 if it already existed.
-            added = redis_client.sadd(key, finding_id)
+            added = redis_client.sadd(key, dedup_id)
             try:
                 redis_client.expire(key, 3600)
             except Exception:
@@ -71,7 +71,7 @@ def _already_fired(run_id: str, finding_id: str, redis_client) -> bool:
             return int(added) == 0
         except Exception:
             pass  # fall through to in-process tracking
-    marker = f"{run_id}:{finding_id}"
+    marker = f"{run_id}:{dedup_id}"
     if marker in _FIRED:
         return True
     _FIRED.add(marker)
@@ -80,6 +80,8 @@ def _already_fired(run_id: str, finding_id: str, redis_client) -> bool:
 
 def _classify(finding: Finding, settings: Settings) -> str:
     """Re-derive why a finding routed to alert (routing collapses the reasons)."""
+    if finding.type == "cycle":
+        return "cycle"
     if finding.count >= settings.r_max or finding.evidence.convergence == "none":
         return "runaway"
     return "side_effecting"
@@ -100,6 +102,16 @@ def _build_event(finding: Finding, span: Optional[Span], run_id: str,
         if finding.count >= settings.sentry_fatal_count or cost >= settings.sentry_fatal_cost:
             level = "fatal"
         fingerprint = ["runaway-loop", tool, run_id]
+    elif kind == "cycle":
+        path = " -> ".join(finding.evidence.cycle_path or finding.span_ids)
+        message = (
+            f"Execution cycle detected: {agent} looped through {finding.count} spans "
+            f"({path}) — ${cost:.2f} burned"
+        )
+        level = "error"
+        if finding.count >= settings.sentry_fatal_count or cost >= settings.sentry_fatal_cost:
+            level = "fatal"
+        fingerprint = ["execution-cycle", tool, run_id]
     else:  # side_effecting
         message = (
             f"Side-effecting redundancy: {agent} repeated write tool {tool} "
@@ -159,10 +171,14 @@ def dispatch_alert(
     Non-blocking: any failure degrades to mock mode and returns normally.
     """
     try:
-        if _already_fired(run_id, finding.finding_id, redis_client):
-            return {"fired": False, "reason": "duplicate"}
         kind = _classify(finding, settings)
         event = _build_event(finding, span, run_id, kind, settings)
+        # Dedup on the Sentry fingerprint (stable across re-analysis), not the
+        # finding_id, which is regenerated on every analyze() pass. This matches
+        # how real-mode Sentry collapses duplicates (SR-6).
+        dedup_key = "|".join(str(p) for p in event["fingerprint"])
+        if _already_fired(run_id, dedup_key, redis_client):
+            return {"fired": False, "reason": "duplicate"}
         mode = _send(event)
         return {"fired": True, "mode": mode, "reason_kind": kind}
     except Exception as exc:  # pragma: no cover - last-resort guard (SR-11)

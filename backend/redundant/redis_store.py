@@ -21,7 +21,7 @@ from typing import Any, Optional
 import redis
 
 from redundant.config import SETTINGS, Settings, ttl_for
-from redundant.schema import CallRecord, RedundantEvent, Run
+from redundant.schema import Cacheability, CallRecord, RedundantEvent, Run
 from redundant.verifier import Candidate
 
 
@@ -111,6 +111,10 @@ class RedisStore:
     def index_call(self, scope_key: str, record: CallRecord) -> None:
         if not record.embedding:
             return
+        # Side-effecting calls are indexed only so duplicate side-effects can be
+        # detected by vector match; their output is never reused, so don't persist
+        # it (avoids retaining write-action payloads in the index).
+        output = "" if record.cacheability == Cacheability.SIDE_EFFECTING else (record.output or "")
         self.r.hset(
             self._call_key(record.call_id),
             mapping={
@@ -118,7 +122,7 @@ class RedisStore:
                 "scope_key": scope_key,
                 "tool_name": record.tool_name,
                 "cacheability": record.cacheability.value,
-                "output": (record.output or "").encode("utf-8"),
+                "output": output.encode("utf-8"),
                 "call_id": record.call_id,
                 "normalized_input": record.normalized_input.encode("utf-8"),
                 "input_tokens": record.input_tokens,

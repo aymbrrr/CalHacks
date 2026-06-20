@@ -49,18 +49,20 @@ class LangCache:
                 pass
         return self._local.get(key)
 
-    def put(self, tool_name: str, input_hash: str, result: str) -> None:
-        """Cache result only if tool is in the read-only allowlist (cacheability gate)."""
+    def put(self, tool_name: str, input_hash: str, result: str) -> bool:
+        """Cache result only if tool is in the read-only allowlist (cacheability
+        gate). Returns True if an entry was actually written."""
         if tool_name not in READ_ONLY_TOOLS:
-            return
+            return False
         key = self._key(tool_name, input_hash)
         if self._r is not None:
             try:
                 self._r.set(key, result, ex=self._ttl)
-                return
+                return True
             except Exception:
                 pass
         self._local[key] = result
+        return True
 
     def populate_from_findings(self, findings: list[Finding], spans_by_id: dict) -> int:
         """Write cacheable findings' representative results into the cache.
@@ -76,6 +78,6 @@ class LangCache:
             tool_name = rep.tool_name or rep.name
             if not tool_name:
                 continue
-            self.put(tool_name, rep.input_hash, rep.output)
-            written += 1
+            if self.put(tool_name, rep.input_hash, rep.output):
+                written += 1
         return written
