@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from .demo import DEFAULT_TASK, run_demo
+from .ingest import ingest_text
 from .storage import JsonlStore
 
 
@@ -57,6 +58,10 @@ class RedundantServer(BaseHTTPRequestHandler):
             body = self._body_json()
             report = run_demo(task=body.get("task") or DEFAULT_TASK, mode="replay", store=self.store)
             return self._json({"run_id": report["run_id"], "status": "complete", "report": report})
+        if parsed.path == "/api/dataset/ingest":
+            body = self._body_json()
+            result = ingest_text(self.store, body.get("text", ""))
+            return self._json({"ingest": result.as_dict(), "stats": self.store.dataset_stats()})
         self._json({"error": "not_found", "path": parsed.path}, status=HTTPStatus.NOT_FOUND)
 
     def log_message(self, format: str, *args: object) -> None:

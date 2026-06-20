@@ -79,11 +79,15 @@ class JsonlStore:
             kind = item.get("new_call", {}).get("call_kind", "unknown")
             labels[label] = labels.get(label, 0) + 1
             by_kind[kind] = by_kind.get(kind, 0) + 1
+        pure_llm = by_kind.get("llm", 0)
+        coverage_ok = len(items) > 0 and pure_llm > 0
         return {
             "path": str(self.label_data_path),
             "total_items": len(items),
             "by_label_hint": labels,
             "by_call_kind": by_kind,
+            "pure_llm_items": pure_llm,
+            "dataset_health": "collecting" if coverage_ok else "needs_llm_examples",
         }
 
     def _events_path(self, run_id: str) -> Path:

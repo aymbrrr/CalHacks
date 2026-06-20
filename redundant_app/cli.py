@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 
 from .demo import DEFAULT_TASK, export_sample, run_demo
+from .ingest import ingest_text
 from .server import serve
 from .storage import JsonlStore
 
@@ -26,6 +28,10 @@ def main() -> None:
     stats = sub.add_parser("dataset-stats", help="Print labelable dataset stats")
     stats.add_argument("--data-dir", default="data")
 
+    ingest = sub.add_parser("ingest-label-data", help="Import REDUNDANT_LABEL_DATA markdown or JSON")
+    ingest.add_argument("--data-dir", default="data")
+    ingest.add_argument("--file", default="-", help="File to import, or '-' for stdin")
+
     args = parser.parse_args()
     if args.command == "run-demo":
         store = JsonlStore(args.data_dir)
@@ -37,6 +43,11 @@ def main() -> None:
         serve(args.host, args.port, args.data_dir)
     elif args.command == "dataset-stats":
         print(json.dumps(JsonlStore(args.data_dir).dataset_stats(), indent=2, sort_keys=True))
+    elif args.command == "ingest-label-data":
+        text = sys.stdin.read() if args.file == "-" else open(args.file, encoding="utf-8").read()
+        store = JsonlStore(args.data_dir)
+        result = ingest_text(store, text)
+        print(json.dumps({"ingest": result.as_dict(), "stats": store.dataset_stats()}, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

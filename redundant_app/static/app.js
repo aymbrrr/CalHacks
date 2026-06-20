@@ -55,6 +55,36 @@ async function refreshDataset() {
   $("labelItems").textContent = stats.total_items || 0;
   $("llmItems").textContent = (stats.by_call_kind && stats.by_call_kind.llm) || 0;
   $("datasetPreview").textContent = JSON.stringify(items, null, 2);
+  renderDatasetHealth(stats);
+}
+
+async function ingestData() {
+  $("ingestButton").disabled = true;
+  $("ingestStatus").textContent = "Importing...";
+  try {
+    const result = await jsonFetch("/api/dataset/ingest", {
+      method: "POST",
+      body: JSON.stringify({ text: $("ingestText").value }),
+    });
+    $("ingestStatus").textContent = `${result.ingest.accepted} accepted, ${result.ingest.duplicates} duplicates, ${result.ingest.rejected} rejected`;
+    await refreshDataset();
+  } catch (error) {
+    $("ingestStatus").textContent = error.message;
+  } finally {
+    $("ingestButton").disabled = false;
+  }
+}
+
+function renderDatasetHealth(stats) {
+  $("datasetHealth").innerHTML = [
+    ["Status", stats.dataset_health || "unknown"],
+    ["Total items", stats.total_items || 0],
+    ["Pure LLM", stats.pure_llm_items || 0],
+    ["Kinds", JSON.stringify(stats.by_call_kind || {})],
+    ["Labels", JSON.stringify(stats.by_label_hint || {})],
+  ]
+    .map(([label, value]) => `<div class="item"><strong>${label}</strong><span>${value}</span></div>`)
+    .join("");
 }
 
 function renderReport(report) {
@@ -79,4 +109,5 @@ function renderReport(report) {
 
 $("runDemo").addEventListener("click", runDemo);
 $("refreshDataset").addEventListener("click", refreshDataset);
+$("ingestButton").addEventListener("click", ingestData);
 refreshDataset().catch(() => {});

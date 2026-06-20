@@ -36,6 +36,18 @@ Check that data is being generated:
 python3 -m redundant_app dataset-stats
 ```
 
+Import `REDUNDANT_LABEL_DATA` from a real LLM turn:
+
+```bash
+python3 -m redundant_app ingest-label-data --file path/to/turn-output.md
+```
+
+Or paste through stdin:
+
+```bash
+pbpaste | python3 -m redundant_app ingest-label-data
+```
+
 Run tests:
 
 ```bash
@@ -50,6 +62,8 @@ python3 -m unittest discover -s tests
 - Redis Streams-style event log.
 - Terac-style `CacheReuseReviewItem` JSONL generation.
 - Pure LLM labelable turn generation.
+- Import of pasted `REDUNDANT_LABEL_DATA` blocks from real use.
+- Dataset health checks for pure LLM coverage.
 - Dataset monitor events every few calls.
 - Static dashboard for timeline, savings, duplicate clusters, fixes, and dataset preview.
 - Replay-safe local data storage.
@@ -63,6 +77,7 @@ python3 -m unittest discover -s tests
 - `POST /api/runs/:run_id/replay`
 - `GET /api/dataset/stats`
 - `GET /api/dataset/labelable`
+- `POST /api/dataset/ingest`
 - `GET /api/dataset/export.jsonl`
 
 ## Docs
