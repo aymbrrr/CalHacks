@@ -30,6 +30,9 @@ from redundant.trace_ingest import load_spans
 from redundant.detection import analyze
 from redundant.lang_cache import LangCache
 from redundant.routing import route_findings
+from redundant import sentry_dispatch
+
+sentry_dispatch.init_sentry()
 
 try:
     from redundant.redis_store import RedisStore
@@ -189,12 +192,26 @@ async def get_findings(run_id: str = "", json_path: str = ""):
     spans_by_id = {s.span_id: s for s in spans}
     cache_written = cache.populate_from_findings(result["findings"], spans_by_id)
 
+    # Fire Sentry incidents for alert-routed (runaway / side-effecting) findings.
+    eff_run_id = run_id or "run-001"
+    alerts_fired = 0
+    for f in result["findings"]:
+        if f.route != "alert":
+            continue
+        ack = sentry_dispatch.dispatch_alert(
+            f, spans_by_id.get(f.representative_span_id), eff_run_id, redis_client
+        )
+        if ack.get("fired"):
+            f.alert_fired = True
+            alerts_fired += 1
+
     return {
         "findings": [f.model_dump(mode="json") for f in result["findings"]],
         "total_cost_usd": result["total_cost_usd"],
         "wasted_cost_usd": result["wasted_cost_usd"],
         "waste_pct": result["waste_pct"],
         "cache_entries_written": cache_written,
+        "alerts_fired": alerts_fired,
         "span_count": len(spans),
     }
 
@@ -207,3 +224,10 @@ async def cache_lookup(tool_name: str, input_hash: str):
     cache = LangCache(redis_client=redis_client)
     result = cache.get(tool_name, input_hash)
     return {"hit": result is not None, "result": result}
+
+
+@app.get("/alerts")
+async def get_alerts():
+    """Sentry incidents fired in mock mode — powers the Sentry sponsor tab when
+    running offline. Empty in real mode (events live on the Sentry dashboard)."""
+    return {"mock": not sentry_dispatch._REAL_MODE, "events": sentry_dispatch.MOCK_EVENTS}

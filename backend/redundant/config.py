@@ -44,6 +44,14 @@ class Settings:
     openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
     anthropic_api_key: str = field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY", ""))
 
+    # Sentry alert arm. Empty DSN → mock mode (SR-9), never crashes the pipeline.
+    sentry_dsn: str = field(default_factory=lambda: os.getenv("SENTRY_DSN", ""))
+    # Repetition count that tips a finding into "runaway" (mirrors detection.R_MAX).
+    r_max: int = field(default_factory=lambda: int(os.getenv("R_MAX", "10")))
+    # Above these, a runaway escalates from "error" to "fatal" (SR-3 level policy).
+    sentry_fatal_count: int = 20
+    sentry_fatal_cost: float = 1.0
+
     default_model: str = field(default_factory=lambda: os.getenv("REDUNDANT_DEFAULT_MODEL", "claude-haiku-4-5"))
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = 1536

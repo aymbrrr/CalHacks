@@ -44,3 +44,5 @@ class Finding(BaseModel):
     route: str     # "cache" | "alert"
     cacheable: bool
     evidence: Evidence = Field(default_factory=Evidence)
+    # Set True once the Sentry arm has fired an incident for this finding (SR-8).
+    alert_fired: bool = False

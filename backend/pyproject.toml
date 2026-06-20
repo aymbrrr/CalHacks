@@ -17,6 +17,7 @@ dependencies = [
     "sse-starlette>=2.0",
     "python-dotenv>=1.0",
     "networkx>=3.2",
+    "sentry-sdk>=2.0",
 ]
 
 [project.optional-dependencies]
