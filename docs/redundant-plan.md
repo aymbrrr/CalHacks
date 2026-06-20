@@ -280,7 +280,7 @@ Acceptance:
 - Demo one unsafe semantic match that Redis finds but Terac verifier blocks.
 - Explain: “Redis finds candidates; Terac teaches us when reuse is safe.”
 
-### 4. Dashboard + Sponsor Polish
+### 4. Dashboard + Sponsor Polish + Pitch
 Owner goal: make the demo legible and prize-ready.
 
 Build UI views:
@@ -326,6 +326,9 @@ Acceptance:
 - Judge can understand value in 30 seconds from UI.
 - Final report can be screenshotted for Devpost.
 - Demo works with live run or replayed trace fallback.
+
+Pitch: 
+- Create a one-liner and pitch for judging presentation
 
 ## Sponsor Integration Plan
 - **Band**: base multi-agent system; at least two agents collaborate through Band.
