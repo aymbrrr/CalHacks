@@ -104,6 +104,111 @@ Each intercepted call stores:
 }
 ```
 
+## UI/Backend Contract
+
+Lock this before parallel work starts. The backend/runtime owns these shapes; the UI should be able to build first against mocked responses, then switch to live Redis Streams events without changing component code.
+
+Conventions:
+
+- Timestamps are ISO strings.
+- Costs are USD numbers.
+- Latency is milliseconds.
+- `event_id` is the Redis Streams ID when live, or a stable replay ID when mocked.
+- Unknown optional fields should be ignored by the UI.
+
+Run lifecycle:
+
+```ts
+type Run = {
+  run_id: string
+  task: string
+  mode: "baseline" | "redundant" | "replay"
+  status: "idle" | "running" | "complete" | "failed"
+  started_at: string
+  completed_at?: string
+  error?: string
+}
+```
+
+Live Redis Streams event:
+
+```ts
+type RedundantEvent = {
+  event_id: string
+  run_id: string
+  ts: string
+  agent_id: "research-agent" | "report-agent" | "verifier-agent" | string
+  call_id: string
+  call_type: "llm" | "tool"
+  tool_name: string
+  decision: "EXECUTE" | "EXACT_REUSE" | "SEMANTIC_REUSE" | "COMPRESS_AND_EXECUTE" | "BLOCK_OR_WARN"
+  cacheability: "pure" | "freshness_sensitive" | "state_bound" | "side_effecting"
+  summary: string
+  explanation: string
+  saved_cost_usd: number
+  saved_latency_ms: number
+  saved_tokens: number
+  source_call_id?: string
+  verifier_score?: number
+  cluster_id?: string
+  sponsor_hooks?: Array<"Band" | "Redis" | "Redis Streams" | "Terac" | "Sentry" | "Token Company" | "Anthropic" | "Arize">
+}
+```
+
+Final report:
+
+```ts
+type RunReport = {
+  run_id: string
+  attempted_calls: number
+  executed_calls: number
+  reused_or_blocked_calls: number
+  redundant_rate: number
+  estimated_baseline_cost_usd: number
+  actual_cost_usd: number
+  saved_cost_usd: number
+  saved_latency_ms: number
+  saved_tokens: number
+  worst_duplicate_cluster?: string
+  clusters: DuplicateCluster[]
+  fixes: SuggestedFix[]
+}
+
+type DuplicateCluster = {
+  cluster_id: string
+  label: string
+  calls: number
+  unique_needed: number
+  waste_percent: number
+  saved_cost_usd: number
+  saved_latency_ms: number
+  agent_ids: string[]
+}
+
+type SuggestedFix = {
+  fix_id: string
+  title: string
+  description: string
+  sponsor_hook?: "Redis" | "Redis Streams" | "Terac" | "Sentry" | "Token Company" | "Anthropic" | "Band" | "Arize"
+  code_hint?: string
+}
+```
+
+Required endpoints:
+
+- `POST /api/runs/start`: body `{ task: string, mode: "baseline" | "redundant" | "replay" }`; returns `Run`.
+- `GET /api/runs/:run_id/events?after=<event_id>`: returns `RedundantEvent[]` for polling/fallback.
+- `GET /api/runs/:run_id/stream`: server-sent events stream where each message is a `RedundantEvent`.
+- `GET /api/runs/:run_id/report`: returns `RunReport`; may return partial totals while running.
+- `POST /api/runs/:run_id/replay`: replays a saved trace through the same event/report contract.
+
+Redis Streams contract:
+
+- Stream key: `stream:redundant:events:{run_id}`.
+- Backend writes one JSON payload per event under field `payload`.
+- UI never reads Redis directly; it consumes `/events` or `/stream`.
+- Replay mode emits the same event shape with deterministic timing so the demo works even if sponsor APIs fail.
+
 ## Cacheability Rules
 
 - `pure`: safe to cache aggressively. Examples: repo scan, doc search, static page summary.
