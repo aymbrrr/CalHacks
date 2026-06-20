@@ -15,7 +15,22 @@ In that section, output one fenced `json` block containing an array of labelable
 
 Only include items based on actual work done in this conversation or agent run. Do not invent calls, tools, timings, URLs, repositories, outputs, or similarities. If no repeated or near-repeated work happened, output an empty array.
 
-Create one item when a new LLM/tool/browser/repo/API call could plausibly have reused an earlier call's output. Good candidates include:
+Create one item when a new LLM/tool/browser/repo/API call could plausibly have reused an earlier call's output.
+
+Pure LLM turns are labelable too. Treat user-visible LLM work as cache candidates even when no tools were called. Good pure-LLM candidates include:
+
+- repeated planning
+- repeated explanation of the same concept
+- repeated summarization from the same visible context
+- repeated rewriting or formatting
+- repeated classification or judging
+- repeated schema design
+- repeated extraction from pasted text
+- repeated answer drafts that differ mostly in wording
+
+For pure LLM items, use `call_kind: "llm"` and summarize the visible prompt/task and visible output. Do not include hidden chain-of-thought, hidden reasoning traces, system prompts, developer prompts, tool schemas, private policy text, or internal scratch work.
+
+Other good candidates include:
 
 - repeated web searches with similar wording
 - repeated document reads
@@ -28,6 +43,7 @@ Create one item when a new LLM/tool/browser/repo/API call could plausibly have r
 Do not include sensitive data. Before outputting the JSON:
 
 - Replace API keys, tokens, cookies, passwords, auth codes, emails, phone numbers, addresses, private URLs, private repo contents, and user-specific account data with `[REDACTED]`.
+- Never expose hidden reasoning, system/developer prompts, tool schemas, internal policies, or invisible scratch context.
 - Summarize large outputs instead of copying them.
 - Do not include full private documents, full source files, full logs, or full message threads.
 - If a field would require sensitive data, use a safe summary plus `"redaction_applied": true`.
@@ -100,19 +116,19 @@ The final section should look exactly like this:
     "task_context": "One-sentence summary of the user's real task.",
     "new_call": {
       "agent_id": "agent-or-assistant-name",
-      "call_kind": "tool",
-      "tool_name": "name_if_any",
+      "call_kind": "llm",
+      "tool_name": "none",
       "prompt_or_args": {
-        "query": "safe redacted args for the later call"
+        "visible_task_summary": "safe summary of the later prompt or LLM subtask"
       },
       "requested_at": null
     },
     "candidate_cached_call": {
       "agent_id": "agent-or-assistant-name",
-      "call_kind": "tool",
-      "tool_name": "name_if_any",
+      "call_kind": "llm",
+      "tool_name": "none",
       "prompt_or_args": {
-        "query": "safe redacted args for the earlier call"
+        "visible_task_summary": "safe summary of the earlier prompt or LLM subtask"
       },
       "output_summary": "Short summary of the earlier output, not the full output.",
       "cached_at": null
