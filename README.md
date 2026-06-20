@@ -28,6 +28,7 @@ Dataset artifacts are written to:
 
 ```text
 data/labelable-review-items.jsonl
+data/terac-labels.jsonl
 ```
 
 Check that data is being generated:
@@ -48,6 +49,24 @@ Or paste through stdin:
 pbpaste | python3 -m redundant_app ingest-label-data
 ```
 
+Add a local label for one review item:
+
+```bash
+python3 -m redundant_app label-item --pair-id PAIR_ID --final-label safe_reuse --confidence 4 --reason "Same visible task and reusable answer."
+```
+
+Evaluate raw Redis reuse against the labels:
+
+```bash
+python3 -m redundant_app eval
+```
+
+Export unlabeled items for Terac:
+
+```bash
+python3 -m redundant_app export-terac
+```
+
 Run tests:
 
 ```bash
@@ -63,6 +82,8 @@ python3 -m unittest discover -s tests
 - Terac-style `CacheReuseReviewItem` JSONL generation.
 - Pure LLM labelable turn generation.
 - Import of pasted `REDUNDANT_LABEL_DATA` blocks from real use.
+- Local annotation queue for tool-use and pure LLM items.
+- Terac-shaped export and Redis-vs-label evaluation.
 - Dataset health checks for pure LLM coverage.
 - Dataset monitor events every few calls.
 - Static dashboard for timeline, savings, duplicate clusters, fixes, and dataset preview.
@@ -79,6 +100,11 @@ python3 -m unittest discover -s tests
 - `GET /api/dataset/labelable`
 - `POST /api/dataset/ingest`
 - `GET /api/dataset/export.jsonl`
+- `GET /api/dataset/terac-export`
+- `GET /api/annotations/queue`
+- `GET /api/annotations/labels`
+- `POST /api/annotations/label`
+- `GET /api/eval`
 
 ## Docs
 

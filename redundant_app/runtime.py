@@ -358,6 +358,7 @@ class RedundantRuntime:
         executed = sum(1 for call in self.calls if call["decision"] in {"EXECUTE", "COMPRESS_AND_EXECUTE"})
         reused = attempted - executed
         clusters = self._clusters()
+        dataset_stats = self.store.dataset_stats()
         return {
             "run_id": self.run_id,
             "task": self.run["task"],
@@ -380,6 +381,8 @@ class RedundantRuntime:
                 "pure_llm_items_generated": sum(
                     1 for item in self.label_items if item["new_call"]["call_kind"] == "llm"
                 ),
+                "labeled_items": dataset_stats.get("labeled_items", 0),
+                "pure_llm_labeled_items": dataset_stats.get("pure_llm_labeled_items", 0),
                 "jsonl_path": str(self.store.label_data_path),
             },
             "band_messages": self.band_messages,

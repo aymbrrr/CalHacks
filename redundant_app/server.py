@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, urlparse
 
 from .demo import DEFAULT_TASK, run_demo
 from .ingest import ingest_text
+from .labels import annotation_queue, evaluate_labels, submit_label, terac_export
 from .storage import JsonlStore
 
 
@@ -40,8 +41,26 @@ class RedundantServer(BaseHTTPRequestHandler):
             return self._json(self.store.list_label_items(limit=int(limit) if limit else None))
         if path == "/api/dataset/stats":
             return self._json(self.store.dataset_stats())
+        if path == "/api/dataset/terac-export":
+            query = parse_qs(parsed.query)
+            limit = query.get("limit", [None])[0]
+            include_labeled = query.get("include_labeled", ["false"])[0].lower() == "true"
+            return self._json(
+                terac_export(
+                    self.store,
+                    include_labeled=include_labeled,
+                    limit=int(limit) if limit else None,
+                )
+            )
         if path == "/api/dataset/export.jsonl":
             return self._send_file(self.store.label_data_path, content_type="application/x-ndjson")
+        if path == "/api/annotations/queue":
+            limit = parse_qs(parsed.query).get("limit", [None])[0]
+            return self._json(annotation_queue(self.store, limit=int(limit) if limit else None))
+        if path == "/api/annotations/labels":
+            return self._json(self.store.list_label_answers())
+        if path == "/api/eval":
+            return self._json(evaluate_labels(self.store))
         self._json({"error": "not_found", "path": path}, status=HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:
@@ -62,6 +81,11 @@ class RedundantServer(BaseHTTPRequestHandler):
             body = self._body_json()
             result = ingest_text(self.store, body.get("text", ""))
             return self._json({"ingest": result.as_dict(), "stats": self.store.dataset_stats()})
+        if parsed.path == "/api/annotations/label":
+            body = self._body_json()
+            result = submit_label(self.store, body)
+            status = HTTPStatus.OK if result["accepted"] else HTTPStatus.BAD_REQUEST
+            return self._json({"label": result, "stats": self.store.dataset_stats(), "eval": evaluate_labels(self.store)}, status=status)
         self._json({"error": "not_found", "path": parsed.path}, status=HTTPStatus.NOT_FOUND)
 
     def log_message(self, format: str, *args: object) -> None:

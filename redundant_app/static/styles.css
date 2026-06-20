@@ -79,7 +79,7 @@ button + button {
 
 .metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -179,6 +179,51 @@ pre {
   padding: 14px;
 }
 
+.annotator {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.review-item {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  line-height: 1.45;
+  min-height: 96px;
+  padding: 10px;
+}
+
+.review-item code {
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: 10px;
+}
+
+label {
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  gap: 5px;
+}
+
+select,
+input {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  min-height: 40px;
+  padding: 0 10px;
+  width: 100%;
+}
+
 textarea {
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -198,7 +243,8 @@ textarea {
   }
 
   .metrics,
-  .grid {
+  .grid,
+  .form-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -6,6 +6,7 @@ import sys
 
 from .demo import DEFAULT_TASK, export_sample, run_demo
 from .ingest import ingest_text
+from .labels import VALID_FINAL_LABELS, evaluate_labels, submit_label, terac_export
 from .server import serve
 from .storage import JsonlStore
 
@@ -32,6 +33,22 @@ def main() -> None:
     ingest.add_argument("--data-dir", default="data")
     ingest.add_argument("--file", default="-", help="File to import, or '-' for stdin")
 
+    label = sub.add_parser("label-item", help="Add a local Terac-style label answer for one review item")
+    label.add_argument("--data-dir", default="data")
+    label.add_argument("--pair-id", required=True)
+    label.add_argument("--final-label", required=True, choices=sorted(VALID_FINAL_LABELS))
+    label.add_argument("--confidence", type=int, default=3)
+    label.add_argument("--reason", required=True)
+    label.add_argument("--reviewer", default="local-reviewer")
+
+    eval_cmd = sub.add_parser("eval", help="Evaluate Redis reuse against local label answers")
+    eval_cmd.add_argument("--data-dir", default="data")
+
+    export = sub.add_parser("export-terac", help="Export unlabeled review items in a Terac task shape")
+    export.add_argument("--data-dir", default="data")
+    export.add_argument("--include-labeled", action="store_true")
+    export.add_argument("--limit", type=int, default=None)
+
     args = parser.parse_args()
     if args.command == "run-demo":
         store = JsonlStore(args.data_dir)
@@ -48,6 +65,27 @@ def main() -> None:
         store = JsonlStore(args.data_dir)
         result = ingest_text(store, text)
         print(json.dumps({"ingest": result.as_dict(), "stats": store.dataset_stats()}, indent=2, sort_keys=True))
+    elif args.command == "label-item":
+        store = JsonlStore(args.data_dir)
+        result = submit_label(
+            store,
+            {
+                "pair_id": args.pair_id,
+                "final_label": args.final_label,
+                "confidence": args.confidence,
+                "short_reason": args.reason,
+                "reviewer": args.reviewer,
+                "source": "cli",
+            },
+        )
+        print(json.dumps({"label": result, "stats": store.dataset_stats(), "eval": evaluate_labels(store)}, indent=2, sort_keys=True))
+        if not result["accepted"]:
+            raise SystemExit(2)
+    elif args.command == "eval":
+        print(json.dumps(evaluate_labels(JsonlStore(args.data_dir)), indent=2, sort_keys=True))
+    elif args.command == "export-terac":
+        store = JsonlStore(args.data_dir)
+        print(json.dumps(terac_export(store, include_labeled=args.include_labeled, limit=args.limit), indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

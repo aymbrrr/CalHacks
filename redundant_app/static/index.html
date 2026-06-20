@@ -36,6 +36,10 @@
           <span>Pure LLM Items</span>
           <strong id="llmItems">0</strong>
         </article>
+        <article>
+          <span>Labeled</span>
+          <strong id="labeledItems">0</strong>
+        </article>
       </section>
 
       <section class="grid">
@@ -81,6 +85,44 @@
         <article class="panel">
           <header><h2>Dataset Health</h2></header>
           <div id="datasetHealth" class="list"></div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <header>
+            <h2>Annotation Queue</h2>
+            <span id="queueStatus">0 pending</span>
+          </header>
+          <div class="annotator">
+            <div id="annotationItem" class="review-item">No unlabeled items.</div>
+            <div class="form-grid">
+              <label>
+                Final label
+                <select id="finalLabel">
+                  <option value="safe_reuse">safe_reuse</option>
+                  <option value="needs_freshness_check">needs_freshness_check</option>
+                  <option value="state_specific">state_specific</option>
+                  <option value="side_effect_risk">side_effect_risk</option>
+                  <option value="not_equivalent">not_equivalent</option>
+                  <option value="unclear">unclear</option>
+                </select>
+              </label>
+              <label>
+                Confidence
+                <input id="labelConfidence" type="number" min="1" max="5" value="3" />
+              </label>
+            </div>
+            <textarea id="labelReason" spellcheck="true" placeholder="Short reason"></textarea>
+            <button id="labelButton">Submit Label</button>
+          </div>
+        </article>
+        <article class="panel">
+          <header>
+            <h2>Evaluation</h2>
+            <a href="/api/dataset/terac-export">Terac Export</a>
+          </header>
+          <div id="evaluation" class="list"></div>
         </article>
       </section>
     </main>
