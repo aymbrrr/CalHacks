@@ -327,8 +327,14 @@ Acceptance:
 - Final report can be screenshotted for Devpost.
 - Demo works with live run or replayed trace fallback.
 
-Pitch: 
+Pitch
 - Create a one-liner and pitch for judging presentation
+
+Devpost
+- Elevator pitch
+- About the project
+Be sure to write what inspired you, what you learned, how you built your project, and the challenges you faced. Format your story in Markdown, with LaTeX support for math.
+- Video Demo
 
 ## Sponsor Integration Plan
 - **Band**: base multi-agent system; at least two agents collaborate through Band.
