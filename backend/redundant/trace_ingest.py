@@ -1,0 +1,45 @@
+"""Trace ingestion: frozen JSON loader + Redis Streams XRANGE batch consumer.
+
+§7.1 of DESIGN_redis.md.
+"""
+from __future__ import annotations
+import json
+from pathlib import Path
+from typing import Optional
+
+from redundant.span_schema import Span
+
+
+def load_from_json(path: str | Path) -> list[Span]:
+    """Load spans from a frozen trace JSON file."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    return [Span.model_validate(s) for s in data]
+
+
+def load_from_stream(run_id: str, redis_client) -> list[Span]:
+    """Batch-consume an entire Redis Stream for a run via XRANGE."""
+    entries = redis_client.xrange(f"trace:{run_id}", min="-", max="+")
+    spans: list[Span] = []
+    for _sid, fields in entries:
+        raw = fields.get(b"data") or fields.get("data")
+        if raw is None:
+            continue
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        spans.append(Span.model_validate(json.loads(raw)))
+    return spans
+
+
+def load_spans(run_id: Optional[str] = None, json_path: Optional[str | Path] = None,
+               redis_client=None) -> list[Span]:
+    """Unified loader: prefer stream if redis_client provided, else fall back to JSON."""
+    if redis_client is not None and run_id:
+        try:
+            return load_from_stream(run_id, redis_client)
+        except Exception:
+            pass
+    if json_path:
+        return load_from_json(json_path)
+    # Default: load the bundled demo trace.
+    default = Path(__file__).parent / "demo_trace.json"
+    return load_from_json(default)

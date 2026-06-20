@@ -1,0 +1,74 @@
+"""Scripted multi-agent waste task (stand-in for the Band workflow, Chunk 2).
+
+Two agents research overlapping topics and write a report, deliberately repeating
+work: duplicate searches, the same source summarized twice, a cross-agent repo
+scan, a small loop, and a duplicated side-effect. With the firewall enabled, the
+duplicates collapse into reuse/blocks; in baseline mode everything executes.
+"""
+
+from __future__ import annotations
+
+from redundant.config import SETTINGS, Settings
+from redundant.runtime import Redundant
+from redundant import tools
+
+
+SOURCE = "https://example.com/agent-cost-optimization"
+
+
+def _fake_anthropic(settings: Settings):
+    """Deterministic offline LLM so the demo runs without an Anthropic key."""
+
+    class _Block:
+        def __init__(self, text):
+            self.type = "text"
+            self.text = text
+
+    class _Resp:
+        def __init__(self, text):
+            self.content = [_Block(text)]
+
+    class _Msgs:
+        def create(self, model, messages, **kwargs):
+            last = messages[-1]["content"] if messages else ""
+            return _Resp(f"[report:{str(last)[:60]}]")
+
+    class _Client:
+        messages = _Msgs()
+
+    return _Client() if not settings.anthropic_api_key else None
+
+
+def run_demo_task(run_id: str, mode: str, store, settings: Settings = SETTINGS) -> None:
+    """Execute the scripted task, emitting events to `store`. mode in
+    {baseline, redundant}. (replay is handled by the API, not here.)"""
+    tools.SIDE_EFFECT_LOG.sends.clear()
+    enabled = mode != "baseline"
+    r = Redundant(
+        run_id=run_id, store=store, settings=settings,
+        anthropic_client=_fake_anthropic(settings), enabled=enabled,
+    )
+
+    # 1. Research agent gathers sources.
+    r.tool("research-agent", "search_docs", {"query": "agent cost optimization tools"})
+    r.tool("research-agent", "scan_repo", {"topic": "redis caching"})
+    r.tool("research-agent", "summarize_page", {"url_or_text": SOURCE})
+    r.tool("research-agent", "compare_tools", {"tool_a": "redis", "tool_b": "sentry"})
+
+    # 2. Report agent repeats overlapping work (the waste).
+    r.tool("report-agent", "search_docs", {"query": "agent cost optimization approaches"})  # paraphrase -> semantic
+    r.tool("report-agent", "summarize_page", {"url_or_text": SOURCE})                        # exact dup
+    r.tool("report-agent", "scan_repo", {"topic": "redis caching"})                          # cross-agent exact dup
+
+    # 3. A small loop (same call hammered).
+    for _ in range(3):
+        r.tool("research-agent", "search_docs", {"query": "redundant agent spend"})
+
+    # 4. A duplicated side-effect (must never replay).
+    r.tool("report-agent", "send_email", {"to": "team@demo.com", "subject": "Findings"})
+    r.tool("report-agent", "send_email", {"to": "team@demo.com", "subject": "Findings"})
+
+    # 5. Final report write-up (LLM).
+    r.llm("report-agent",
+          [{"role": "user", "content": "Write a short recommendation from the research."}],
+          model=settings.default_model)
