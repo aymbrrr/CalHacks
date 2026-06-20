@@ -309,32 +309,28 @@ Narrative:
 Redis found the savings. Terac taught Redundant which savings were safe to keep.
 ```
 
-## Four-Person Split
+## Single-Owner Scope
 
-Backend/cache owner:
+This Terac workstream should have one owner. That person is responsible for turning human labels into a working verifier/evaluation story without depending on the rest of the team to build Terac-specific pieces.
 
-- Emit `CacheReuseReviewItem` objects from ambiguous Redis semantic matches.
-- Store review items and labels in Redis.
-- Publish Redis Streams events for requested/received labels.
+Terac owner responsibilities:
 
-Terac/eval owner:
+- Own the seed dataset and label taxonomy.
+- Own the annotation instructions and Terac task shape.
+- Own the import/export format for `CacheReuseReviewItem` and `TeracReuseAnswer`.
+- Own the hand-labeled fallback dataset.
+- Own the aggregation logic for multiple annotator responses.
+- Own the verifier prompt or lightweight classifier.
+- Own the before/after eval table.
+- Own the demo examples that show unsafe semantic reuse being blocked.
 
-- Prepare the seed dataset.
-- Build the annotation instructions.
-- Import/export Terac labels into `TeracReuseAnswer`.
-- Produce before/after metrics.
+Interfaces with the other workstreams:
 
-UI owner:
+- Backend provides ambiguous Redis cache candidates in the `CacheReuseReviewItem` shape.
+- UI reads label and verifier status from Redis Streams events.
+- Agents/demo provides traces that intentionally create repeated calls.
 
-- Show a review queue and label status.
-- Show raw Redis decision vs verifier decision.
-- Show unsafe reuse blocked and savings retained.
-
-Agents/demo owner:
-
-- Script the multi-agent run that creates repeated calls.
-- Ensure the demo has examples from each label bucket.
-- Keep replay fallback ready if live Terac labels are delayed.
+The Terac owner should not wait on perfect backend/UI support. They can use JSON fixtures first, then swap in live Redis/Streams data once the contracts are available.
 
 ## Launch Readiness Checklist
 
