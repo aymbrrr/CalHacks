@@ -186,6 +186,24 @@ class RedisStore:
         raw = self.r.get(self._run_key(run_id))
         return Run.model_validate_json(raw) if raw else None
 
+    def list_runs(self) -> list[Run]:
+        """Scan run keys and return all known Runs, newest first.
+
+        SCAN over a tiny namespace (one entry per run); fine at hackathon scale.
+        For larger deployments, swap to a sorted-set index keyed by started_at.
+        """
+        runs: list[Run] = []
+        pattern = f"{self.ns}:run:*"
+        for key in self.r.scan_iter(match=pattern):
+            raw = self.r.get(key)
+            if raw:
+                try:
+                    runs.append(Run.model_validate_json(raw))
+                except Exception:
+                    continue
+        runs.sort(key=lambda r: r.started_at, reverse=True)
+        return runs
+
 
 def _escape_tag(value: str) -> str:
     # RediSearch tag values must escape these special characters.

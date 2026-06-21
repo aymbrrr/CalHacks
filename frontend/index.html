@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redundant · the AI cost firewall</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --gt-dim: #8c95a2;
+        --gt-dimmer: #6b7480;
+        --gt-sec: #bac2cc;
+        --gt-mut: #9aa3b0;
+      }
+      [data-contrast="standard"] {
+        --gt-dim: #6b7480;
+        --gt-dimmer: #4b525b;
+        --gt-sec: #a9b2bd;
+        --gt-mut: #8a94a6;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html,
+      body,
+      #root {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #0b0d10;
+      }
+      body {
+        font-family: "Geist", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        color: #e6ebf0;
+      }
+      ::selection {
+        background: rgba(74, 222, 128, 0.25);
+      }
+      .rdt-scroll::-webkit-scrollbar {
+        width: 9px;
+        height: 9px;
+      }
+      .rdt-scroll::-webkit-scrollbar-thumb {
+        background: #2a323c;
+        border-radius: 6px;
+        border: 2px solid #0b0d10;
+      }
+      .rdt-scroll::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      @keyframes rdtPulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+      @keyframes rdtAlertPulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.4);
+        }
+        50% {
+          box-shadow: 0 0 0 4px rgba(248, 113, 113, 0);
+        }
+      }
+      .rdt-pulse {
+        animation: rdtPulse 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+      }
+      .rdt-alert {
+        animation: rdtAlertPulse 1.6s ease-out infinite;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .rdt-pulse,
+        .rdt-alert {
+          animation: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

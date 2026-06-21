@@ -66,6 +66,12 @@ class StartBody(BaseModel):
     mode: str = "redundant"  # baseline | redundant | replay
 
 
+@app.get("/api/runs", response_model=list[Run])
+async def list_runs() -> list[Run]:
+    """Every known run, newest first. Drives the top-bar run selector."""
+    return get_store().list_runs()
+
+
 @app.post("/api/runs/start", response_model=Run)
 async def start_run(body: StartBody) -> Run:
     run_id = f"run-{uuid.uuid4().hex[:8]}"
@@ -176,6 +182,8 @@ def _compute_findings(run_id: str, json_path: str) -> dict:
     """Blocking trace analysis + cache pre-warm + Sentry dispatch.
 
     Runs off the event loop (network I/O to Redis/Sentry, CPU-bound graph work).
+    Response includes the full spans list and a per-model cost rollup so the UI
+    can render the flamegraph + provider breakdown from a single round trip.
     """
     store = get_store()
     redis_client = getattr(store, "r", None)
@@ -207,11 +215,20 @@ def _compute_findings(run_id: str, json_path: str) -> dict:
             f.alert_fired = True
             alerts_fired += 1
 
+    # Per-model cost rollup — empty string key bundles spans with no model
+    # (tool calls in legacy traces). UI surfaces this in the dev inspector.
+    cost_by_model: dict[str, float] = {}
+    for s in spans:
+        key = s.model or ""
+        cost_by_model[key] = round(cost_by_model.get(key, 0.0) + s.cost_usd, 6)
+
     return {
+        "spans": [s.model_dump(mode="json") for s in spans],
         "findings": [f.model_dump(mode="json") for f in result["findings"]],
         "total_cost_usd": result["total_cost_usd"],
         "wasted_cost_usd": result["wasted_cost_usd"],
         "waste_pct": result["waste_pct"],
+        "cost_by_model": cost_by_model,
         "cache_entries_written": cache_written,
         "alerts_fired": alerts_fired,
         "span_count": len(spans),

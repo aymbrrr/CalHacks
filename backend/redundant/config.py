@@ -17,24 +17,36 @@ except Exception:  # dotenv optional at runtime
 
 
 # --- Model pricing (USD per 1M tokens) --------------------------------------
-# Approximate published rates; used only to estimate spend saved for the demo.
+# Approximate published rates; used to estimate spend saved for the demo and to
+# drive provider-aware UI affordances (sponsor chips, model swap dropdowns).
 @dataclass(frozen=True)
 class ModelPrice:
     input_per_mtok: float
     output_per_mtok: float
+    provider: str = "unknown"        # "anthropic" | "openai" | "google" | "mistral" | "local" | "unknown"
+    family: str = "unknown"          # "claude" | "gpt" | "gemini" | "mistral" | "llama" | "qwen" | "embedding"
+    short_label: str = ""            # tight chip label, e.g. "Opus 4.7", "GPT-4o", "Haiku 4.5"
 
 
 MODEL_PRICING: dict[str, ModelPrice] = {
-    # OpenAI chat models — what redundant.llm() actually executes against.
-    "gpt-4o": ModelPrice(5.0, 15.0),
-    "gpt-4o-mini": ModelPrice(0.15, 0.6),
+    # Anthropic — reference pricing for ingested traces that name these models.
+    "claude-opus-4-8":      ModelPrice(15.0, 75.0, "anthropic", "claude", "Opus 4.8"),
+    "claude-opus-4-7":      ModelPrice(15.0, 75.0, "anthropic", "claude", "Opus 4.7"),
+    "claude-sonnet-4-6":    ModelPrice(3.0,  15.0, "anthropic", "claude", "Sonnet 4.6"),
+    "claude-haiku-4-5":     ModelPrice(0.80,  4.0, "anthropic", "claude", "Haiku 4.5"),
+    # OpenAI — gpt-4o / gpt-4o-mini are what redundant.llm() actually executes against.
+    "gpt-4o":               ModelPrice(5.0,  15.0, "openai",    "gpt",    "GPT-4o"),
+    "gpt-4o-mini":          ModelPrice(0.15,  0.6, "openai",    "gpt",    "GPT-4o mini"),
+    # Google
+    "gemini-1.5-pro":       ModelPrice(1.25,  5.0, "google",    "gemini", "Gemini 1.5 Pro"),
+    "gemini-1.5-flash":     ModelPrice(0.075, 0.3, "google",    "gemini", "Gemini 1.5 Flash"),
+    # Mistral
+    "mistral-large":        ModelPrice(2.0,   6.0, "mistral",   "mistral","Mistral Large"),
+    # Local / open weights — tokens counted, marginal cost 0.
+    "llama-3.1-70b":        ModelPrice(0.0,   0.0, "local",     "llama",  "Llama 3.1 70B"),
+    "qwen-2.5-72b":         ModelPrice(0.0,   0.0, "local",     "qwen",   "Qwen 2.5 72B"),
     # Embeddings (input only); output cost is 0.
-    "text-embedding-3-small": ModelPrice(0.02, 0.0),
-    # Reference pricing only — for ingested traces that name these models. We
-    # never call them; kept so the dashboard can price third-party trace data.
-    "claude-opus-4-8": ModelPrice(15.0, 75.0),
-    "claude-sonnet-4-6": ModelPrice(3.0, 15.0),
-    "claude-haiku-4-5": ModelPrice(0.80, 4.0),
+    "text-embedding-3-small": ModelPrice(0.02, 0.0, "openai",   "embedding", "Embedding 3 small"),
 }
 
 # Fallback assumed latency (ms) per executed call type, used to credit savings

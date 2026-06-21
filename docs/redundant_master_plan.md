@@ -343,7 +343,7 @@ Prepare the three-sentence verifier explanation for judges: "Redis finds candida
 
 ---
 
-### Owner 4 — Dashboard UI
+### Owner 4 — Dashboard UI + Devpost
 *Owns: the flamegraph dashboard — the surface where the diagnosis becomes visible and the dollar payoff lands.*
 
 **The UI spec lives in UI_REQUIREMENTS.md. What follows is the build sequence and the decisions made in the design discussions above.**

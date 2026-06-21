@@ -8,15 +8,9 @@ from collections import defaultdict
 
 import networkx as nx
 
-from redundant.config import MODEL_PRICING, ModelPrice, SETTINGS
+from redundant.config import SETTINGS
+from redundant.pricing import cost_for, info_for
 from redundant.span_schema import Evidence, Finding, Span, TokenCost
-
-# ---------------------------------------------------------------------------
-# Price table (USD per 1M tokens) — §7.3
-# Single source of truth is config.MODEL_PRICING; gpt-* spans (which may appear
-# in ingested traces) fall back to the mid-tier default below.
-# ---------------------------------------------------------------------------
-_DEFAULT_PRICE = ModelPrice(3.0, 15.0)
 
 # Repetition count that tips "runaway". Sourced from Settings so routing and the
 # Sentry arm agree on the threshold (override via the R_MAX env var).
@@ -28,12 +22,12 @@ READ_ONLY_TOOLS = {"web_search", "search_docs", "scan_repo", "summarize_page",
 
 
 def _span_cost(span: Span) -> float:
-    price = MODEL_PRICING.get(span.model or "", _DEFAULT_PRICE)
-    return round(
-        span.tokens.input / 1_000_000 * price.input_per_mtok
-        + span.tokens.output / 1_000_000 * price.output_per_mtok,
-        6,
-    )
+    """Cost of a span. Prefers a pre-populated ``cost_usd`` (set by trace ingest)
+    so detection and the UI agree to the cent; falls back to live computation
+    for spans built outside the ingest path."""
+    if getattr(span, "cost_usd", 0.0):
+        return span.cost_usd
+    return cost_for(span.model, span.tokens.input, span.tokens.output)
 
 
 def _sum_tokens(spans: list[Span]) -> TokenCost:
@@ -79,6 +73,7 @@ def detect_repetition(spans: list[Span]) -> list[Finding]:
             route="cache",
             cacheable=(tool_name in READ_ONLY_TOOLS),
             evidence=Evidence(convergence="converged" if len(set(s.output for s in group)) == 1 else "none"),
+            models_involved=sorted({s.model for s in group if s.model}),
         ))
     return findings
 
@@ -119,6 +114,7 @@ def detect_cycles(spans: list[Span]) -> list[Finding]:
             route="cache",
             cacheable=False,
             evidence=Evidence(cycle_path=cycle + [cycle[0]], convergence="none"),
+            models_involved=sorted({s.model for s in cycle_spans if s.model}),
         ))
     return findings
 
