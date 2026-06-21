@@ -23,6 +23,10 @@ class Span(BaseModel):
     end_time: int = 0
     tokens: TokenCost = Field(default_factory=TokenCost)
     model: Optional[str] = None
+    # Stamped during trace ingest from (model, tokens). Pre-computing here keeps
+    # every downstream consumer (findings, UI flamegraph, report) reconciled to
+    # the same number instead of re-deriving and drifting.
+    cost_usd: float = 0.0
 
 
 class Evidence(BaseModel):
@@ -46,3 +50,6 @@ class Finding(BaseModel):
     evidence: Evidence = Field(default_factory=Evidence)
     # Set True once the Sentry arm has fired an incident for this finding (SR-8).
     alert_fired: bool = False
+    # Distinct model strings across this finding's spans. Drives the UI root-
+    # cause panel "models" row and provider-aware fix ordering.
+    models_involved: list[str] = Field(default_factory=list)

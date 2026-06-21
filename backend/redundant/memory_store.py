@@ -132,3 +132,7 @@ class InMemoryStore:
     def get_run(self, run_id: str) -> Optional[Run]:
         with self._lock:
             return self._runs.get(run_id)
+
+    def list_runs(self) -> list[Run]:
+        with self._lock:
+            return sorted(self._runs.values(), key=lambda r: r.started_at, reverse=True)

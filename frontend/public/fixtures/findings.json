@@ -1,0 +1,97 @@
+{
+  "spans": [
+    {"span_id":"s_root","parent_span_id":null,"kind":"agent","name":"research_task","tool_name":null,"agent_name":"orchestrator","input":"Research France demographics & economy; write a brief","output":"report.md","input_hash":"root","start_time":0,"end_time":17400,"tokens":{"input":0,"output":0},"model":null,"cost_usd":0},
+
+    {"span_id":"a_plan","parent_span_id":"s_root","kind":"agent","name":"planner","tool_name":null,"agent_name":"planner","input":"decompose task","output":"4 subtasks","input_hash":"plan","start_time":0,"end_time":1250,"tokens":{"input":2400,"output":880},"model":"claude-opus-4-7","cost_usd":0.102},
+    {"span_id":"s_plan","parent_span_id":"a_plan","kind":"llm","name":"llm:decompose","tool_name":null,"agent_name":"planner","input":"Decompose the research task into subgoals","output":"population, gdp, trend, draft","input_hash":"plan-llm","start_time":60,"end_time":1250,"tokens":{"input":2400,"output":880},"model":"claude-opus-4-7","cost_usd":0.102},
+
+    {"span_id":"a_ra","parent_span_id":"s_root","kind":"agent","name":"researcher_a","tool_name":null,"agent_name":"researcher_a","input":"gather population + gdp","output":"2 results","input_hash":"ra","start_time":1350,"end_time":4050,"tokens":{"input":3500,"output":620},"model":"gpt-4o","cost_usd":0.0268},
+    {"span_id":"s_ra1","parent_span_id":"a_ra","kind":"tool","name":"tool:web_search","tool_name":"web_search","agent_name":"researcher_a","input":"population of france 2024","output":"~68 million","input_hash":"a1b2c3","start_time":1350,"end_time":3050,"tokens":{"input":1800,"output":320},"model":"gpt-4o","cost_usd":0.0138},
+    {"span_id":"s_ra2","parent_span_id":"a_ra","kind":"tool","name":"tool:web_search","tool_name":"web_search","agent_name":"researcher_a","input":"france gdp 2024","output":"$3.13 trillion","input_hash":"gdp24","start_time":3150,"end_time":4050,"tokens":{"input":1700,"output":300},"model":"gpt-4o","cost_usd":0.013},
+
+    {"span_id":"a_rb","parent_span_id":"s_root","kind":"agent","name":"researcher_b","tool_name":null,"agent_name":"researcher_b","input":"gather population","output":"1 result","input_hash":"rb","start_time":4150,"end_time":5950,"tokens":{"input":1800,"output":320},"model":"gpt-4o","cost_usd":0.0138},
+    {"span_id":"s_rb1","parent_span_id":"a_rb","kind":"tool","name":"tool:web_search","tool_name":"web_search","agent_name":"researcher_b","input":"population of france 2024","output":"~68 million","input_hash":"a1b2c3","start_time":4150,"end_time":5850,"tokens":{"input":1800,"output":320},"model":"gpt-4o","cost_usd":0.0138},
+
+    {"span_id":"a_rc","parent_span_id":"s_root","kind":"agent","name":"researcher_c","tool_name":null,"agent_name":"researcher_c","input":"gather population","output":"1 result","input_hash":"rc","start_time":6050,"end_time":7800,"tokens":{"input":1800,"output":320},"model":"gpt-4o","cost_usd":0.0138},
+    {"span_id":"s_rc1","parent_span_id":"a_rc","kind":"tool","name":"tool:web_search","tool_name":"web_search","agent_name":"researcher_c","input":"population of france 2024","output":"~68 million","input_hash":"a1b2c3","start_time":6050,"end_time":7800,"tokens":{"input":1800,"output":320},"model":"gpt-4o","cost_usd":0.0138},
+
+    {"span_id":"a_wr","parent_span_id":"s_root","kind":"agent","name":"writer","tool_name":null,"agent_name":"writer","input":"compose report","output":"draft.md","input_hash":"wr","start_time":7900,"end_time":12100,"tokens":{"input":9200,"output":3100},"model":"claude-opus-4-7","cost_usd":0.3705},
+    {"span_id":"s_wr1","parent_span_id":"a_wr","kind":"llm","name":"llm:summarize","tool_name":null,"agent_name":"writer","input":"summarize France's population trend","output":"Population is rising slowly…","input_hash":"sum01","start_time":7900,"end_time":9300,"tokens":{"input":2600,"output":540},"model":"claude-opus-4-7","cost_usd":0.0795},
+    {"span_id":"s_wr2","parent_span_id":"a_wr","kind":"llm","name":"llm:summarize","tool_name":null,"agent_name":"writer","input":"overview of how France's population is changing","output":"France's population is gradually growing…","input_hash":"sum02","start_time":9400,"end_time":10700,"tokens":{"input":2500,"output":520},"model":"claude-opus-4-7","cost_usd":0.0765},
+    {"span_id":"s_wr3","parent_span_id":"a_wr","kind":"llm","name":"llm:draft_report","tool_name":null,"agent_name":"writer","input":"draft the full report","output":"# France 2024 brief…","input_hash":"draft","start_time":10800,"end_time":12100,"tokens":{"input":4100,"output":2040},"model":"claude-opus-4-7","cost_usd":0.2145},
+
+    {"span_id":"a_fc","parent_span_id":"s_root","kind":"agent","name":"fact_checker","tool_name":null,"agent_name":"fact_checker","input":"verify claims","output":"never converged","input_hash":"fc","start_time":12200,"end_time":17400,"tokens":{"input":9600,"output":1440},"model":"gpt-4o","cost_usd":0.0696},
+    {"span_id":"s_fc0","parent_span_id":"a_fc","kind":"tool","name":"tool:verify_source","tool_name":"verify_source","agent_name":"fact_checker","input":"verify: France population = 68M","output":"inconclusive — re-checking","input_hash":"vfy01","start_time":12200,"end_time":12610,"tokens":{"input":800,"output":120},"model":"gpt-4o","cost_usd":0.0058},
+    {"span_id":"s_fc1","parent_span_id":"a_fc","kind":"tool","name":"tool:verify_source","tool_name":"verify_source","agent_name":"fact_checker","input":"verify: France population = 68M","output":"inconclusive — re-checking","input_hash":"vfy01","start_time":12630,"end_time":13040,"tokens":{"input":800,"output":120},"model":"gpt-4o","cost_usd":0.0058},
+    {"span_id":"s_fc2","parent_span_id":"a_fc","kind":"tool","name":"tool:verify_source","tool_name":"verify_source","agent_name":"fact_checker","input":"verify: France population = 68M","output":"inconclusive — re-checking","input_hash":"vfy01","start_time":13060,"end_time":13470,"tokens":{"input":800,"output":120},"model":"gpt-4o","cost_usd":0.0058},
+    {"span_id":"s_fc3","parent_span_id":"a_fc","kind":"tool","name":"tool:verify_source","tool_name":"verify_source","agent_name":"fact_checker","input":"verify: France population = 68M","output":"inconclusive — re-checking","input_hash":"vfy01","start_time":13490,"end_time":13900,"tokens":{"input":800,"output":120},"model":"gpt-4o","cost_usd":0.0058},
+    {"span_id":"s_fc4","parent_span_id":"a_fc","kind":"tool","name":"tool:verify_source","tool_name":"verify_source","agent_name":"fact_checker","input":"verify: France population = 68M","output":"inconclusive — re-checking","input_hash":"vfy01","start_time":13920,"end_time":14330,"tokens":{"input":800,"output":120},"model":"gpt-4o","cost_usd":0.0058},
+    {"span_id":"s_fc5","parent_span_id":"a_fc","kind":"tool","name":"tool:verify_source","tool_name":"verify_source","agent_name":"fact_checker","input":"verify: France population = 68M","output":"inconclusive — re-checking","input_hash":"vfy01","start_time":14350,"end_time":14760,"tokens":{"input":800,"output":120},"model":"gpt-4o","cost_usd":0.0058},
+    {"span_id":"s_fc6","parent_span_id":"a_fc","kind":"tool","name":"tool:verify_source","tool_name":"verify_source","agent_name":"fact_checker","input":"verify: France population = 68M","output":"inconclusive — re-checking","input_hash":"vfy01","start_time":14780,"end_time":15190,"tokens":{"input":800,"output":120},"model":"gpt-4o","cost_usd":0.0058},
+    {"span_id":"s_fc7","parent_span_id":"a_fc","kind":"tool","name":"tool:verify_source","tool_name":"verify_source","agent_name":"fact_checker","input":"verify: France population = 68M","output":"inconclusive — re-checking","input_hash":"vfy01","start_time":15210,"end_time":15620,"tokens":{"input":800,"output":120},"model":"gpt-4o","cost_usd":0.0058},
+    {"span_id":"s_fc8","parent_span_id":"a_fc","kind":"tool","name":"tool:verify_source","tool_name":"verify_source","agent_name":"fact_checker","input":"verify: France population = 68M","output":"inconclusive — re-checking","input_hash":"vfy01","start_time":15640,"end_time":16050,"tokens":{"input":800,"output":120},"model":"gpt-4o","cost_usd":0.0058},
+    {"span_id":"s_fc9","parent_span_id":"a_fc","kind":"tool","name":"tool:verify_source","tool_name":"verify_source","agent_name":"fact_checker","input":"verify: France population = 68M","output":"inconclusive — re-checking","input_hash":"vfy01","start_time":16070,"end_time":16480,"tokens":{"input":800,"output":120},"model":"gpt-4o","cost_usd":0.0058},
+    {"span_id":"s_fc10","parent_span_id":"a_fc","kind":"tool","name":"tool:verify_source","tool_name":"verify_source","agent_name":"fact_checker","input":"verify: France population = 68M","output":"inconclusive — re-checking","input_hash":"vfy01","start_time":16500,"end_time":16910,"tokens":{"input":800,"output":120},"model":"gpt-4o","cost_usd":0.0058},
+    {"span_id":"s_fc11","parent_span_id":"a_fc","kind":"tool","name":"tool:verify_source","tool_name":"verify_source","agent_name":"fact_checker","input":"verify: France population = 68M","output":"inconclusive (gave up)","input_hash":"vfy01","start_time":16930,"end_time":17340,"tokens":{"input":800,"output":120},"model":"gpt-4o","cost_usd":0.0058}
+  ],
+  "findings": [
+    {
+      "finding_id":"f_rep",
+      "type":"repetition",
+      "span_ids":["s_ra1","s_rb1","s_rc1"],
+      "representative_span_id":"s_ra1",
+      "count":3,
+      "description":"web_search called 3x with identical args across 3 agents: researcher_a, researcher_b, researcher_c",
+      "token_cost":{"input":3600,"output":640},
+      "dollar_cost":0.0276,
+      "severity":"wasteful",
+      "route":"cache",
+      "cacheable":true,
+      "evidence":{"similarity":0.94,"cycle_path":null,"convergence":"converged"},
+      "alert_fired":false,
+      "models_involved":["gpt-4o"]
+    },
+    {
+      "finding_id":"f_sem",
+      "type":"semantic_duplicate",
+      "span_ids":["s_wr1","s_wr2"],
+      "representative_span_id":"s_wr1",
+      "count":2,
+      "description":"Two writer LLM calls express the same subgoal in different words; cosine 0.88",
+      "token_cost":{"input":2500,"output":520},
+      "dollar_cost":0.0765,
+      "severity":"wasteful",
+      "route":"cache",
+      "cacheable":true,
+      "evidence":{"similarity":0.88,"cycle_path":null,"convergence":"unknown"},
+      "alert_fired":false,
+      "models_involved":["claude-opus-4-7"]
+    },
+    {
+      "finding_id":"f_run",
+      "type":"cycle",
+      "span_ids":["s_fc0","s_fc1","s_fc2","s_fc3","s_fc4","s_fc5","s_fc6","s_fc7","s_fc8","s_fc9","s_fc10","s_fc11"],
+      "representative_span_id":"s_fc0",
+      "count":12,
+      "description":"fact_checker called verify_source 12 times with the same input and non-converging output",
+      "token_cost":{"input":9600,"output":1440},
+      "dollar_cost":0.0696,
+      "severity":"runaway",
+      "route":"alert",
+      "cacheable":false,
+      "evidence":{"similarity":null,"cycle_path":null,"convergence":"none"},
+      "alert_fired":true,
+      "models_involved":["gpt-4o"]
+    }
+  ],
+  "total_cost_usd": 0.5696,
+  "wasted_cost_usd": 0.1737,
+  "waste_pct": 30.5,
+  "cost_by_model": {
+    "claude-opus-4-7": 0.4725,
+    "gpt-4o": 0.0966
+  },
+  "cache_entries_written": 2,
+  "alerts_fired": 1,
+  "span_count": 25
+}
