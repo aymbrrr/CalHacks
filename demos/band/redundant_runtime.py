@@ -12,7 +12,7 @@ from .trace_writer import TraceWriter, input_hash
 
 
 # Real model name used for LLM calls; can be overridden via REDUNDANT_DEFAULT_MODEL.
-LLM_MODEL = os.getenv("REDUNDANT_DEFAULT_MODEL", "claude-haiku-4-5")
+LLM_MODEL = os.getenv("REDUNDANT_DEFAULT_MODEL", "gpt-4o-mini")
 TOOL_MODEL = "tool:scripted"
 
 # How many identical calls in a row trigger a loop block in the local shim
@@ -86,12 +86,10 @@ def _log_integrations() -> None:
     else:
         masked_redis = redis_url
     has_openai = bool(_SETTINGS.openai_api_key)
-    has_anthropic = bool(_SETTINGS.anthropic_api_key)
     print(
         f"[redundant_runtime] Config — "
         f"Redis: {masked_redis} | "
-        f"OpenAI embeddings: {'yes' if has_openai else 'no (local fallback)'} | "
-        f"Anthropic LLM: {'yes' if has_anthropic else 'no'}"
+        f"OpenAI: {'yes' if has_openai else 'no (local fallback)'}"
     )
 
 
@@ -184,9 +182,9 @@ class RedundantRuntime:
                 )
                 return WrappedResult(output=output, decision=decision_str, span_id=span["span_id"])
             except Exception as exc:
-                print(f"[redundant_runtime] Real runtime llm error: {exc!r}, falling back to direct Anthropic")
+                print(f"[redundant_runtime] Real runtime llm error: {exc!r}, falling back to direct OpenAI")
 
-        # Shim path: direct Anthropic call (no Redundant backend available).
+        # Shim path: direct OpenAI call (no Redundant backend available).
         output = self._call_anthropic_direct(messages, model)
         cost = CALL_COSTS["llm"]
         latency = CALL_LATENCIES_MS["llm"]
@@ -234,8 +232,17 @@ class RedundantRuntime:
 
         # Route through real backend — normalize→exact→embed+KNN→decide→execute→persist→emit.
         if self._real is not None:
+            print(
+                f"[redundant_runtime] ROUTE→REAL_BACKEND  agent={agent_name!r}"
+                f"  tool={tool_name!r}  cacheability={cacheability!r}"
+                f"  normalized={input_value[:120]!r}  run_id={self.run_id!r}"
+            )
             try:
                 event = self._real.tool(agent_name, tool_name, args, cacheability=cacheability)
+                print(
+                    f"[redundant_runtime] REAL_BACKEND_RESULT  tool={tool_name!r}"
+                    f"  decision={event.decision.value!r}  source_call_id={event.source_call_id!r}"
+                )
                 return self._record_backend_tool_event(
                     event=event,
                     agent_name=agent_name,
@@ -250,6 +257,10 @@ class RedundantRuntime:
                 print(f"[redundant_runtime] Real runtime tool error ({tool_name}): {exc!r}, falling back to shim")
 
         # Shim path (no real backend).
+        print(
+            f"[redundant_runtime] ROUTE→SHIM  agent={agent_name!r}"
+            f"  tool={tool_name!r}  reason={'real backend unavailable' if self._real is None else 'error fallback'}"
+        )
         return self._shim_tool(
             agent_name=agent_name,
             tool_name=tool_name,
@@ -609,18 +620,20 @@ class RedundantRuntime:
     # -------------------------------------------------------------------------
 
     def _call_anthropic_direct(self, messages: list[dict[str, Any]], model: str) -> str:
-        """Direct Anthropic call used when the real Redundant backend is unavailable."""
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        """Direct OpenAI call used when the real Redundant backend is unavailable."""
+        api_key = os.environ.get("OPENAI_API_KEY", "")
         if not api_key:
-            print("[redundant_runtime] ANTHROPIC_API_KEY not set; returning placeholder LLM response")
-            return "[LLM response unavailable: ANTHROPIC_API_KEY not configured]"
+            print("[redundant_runtime] OPENAI_API_KEY not set; returning placeholder LLM response")
+            return "[LLM response unavailable: OPENAI_API_KEY not configured]"
+        # Always use OpenAI regardless of what model name was requested
+        oai_model = "gpt-4o-mini"
         try:
-            from anthropic import Anthropic
-            client = Anthropic(api_key=api_key)
-            resp = client.messages.create(model=model, max_tokens=512, messages=messages)
-            return "\n".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key)
+            resp = client.chat.completions.create(model=oai_model, max_tokens=512, messages=messages)
+            return resp.choices[0].message.content or ""
         except Exception as exc:
-            print(f"[redundant_runtime] Direct Anthropic call failed: {exc!r}")
+            print(f"[redundant_runtime] Direct OpenAI call failed: {exc!r}")
             return f"[LLM error: {exc}]"
 
     def _execute_scripted_tool(self, tool_name: str, args: dict[str, Any], input_value: str) -> str:

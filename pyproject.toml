@@ -4,5 +4,6 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "band-sdk>=1.0.0",
+    "openai>=2.43.0",
     "pyyaml>=6.0",
 ]

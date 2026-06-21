@@ -96,6 +96,13 @@ class Redundant:
         cache = cacheability or default_cacheability(tool_name).value
         normalized = normalize_tool_args(tool_name, args)
         in_tokens = count_tokens(normalized)
+        _scope = scope_key(self.run_id, cache, (metadata or {}).get("state_fingerprint"))
+        _hash = compute_hash(_scope, normalized)
+        print(
+            f"[redundant] TOOL CALL  agent={agent_id!r} tool={tool_name!r}"
+            f"  cacheability={cache!r}  normalized={normalized[:120]!r}"
+            f"  exact_hash={_hash!r}"
+        )
         return self._handle(
             agent_id=agent_id,
             call_type=CallType.TOOL,
@@ -166,8 +173,17 @@ class Redundant:
         # The embedding is a paid, possibly network OpenAI call and is only needed
         # for the semantic path, so defer it and skip it entirely when an exact hit
         # or a loop-block already determines the outcome.
+        _exact_cache_key = self.store._exact_key(scope, input_hash)
+        print(
+            f"[redundant] LOOKUP     tool={tool_name!r}  hash={input_hash!r}"
+            f"  redis_key={_exact_cache_key!r}"
+        )
         exact = self.store.get_exact(scope, input_hash)
         loop_count = self.store.incr_loop(self.run_id, input_hash)
+        print(
+            f"[redundant] EXACT_HIT  {'YES call_id=' + exact.call_id if exact else 'NO'}"
+            f"  loop_count={loop_count}"
+        )
         exact_id = exact.call_id if exact else None
         is_side_effecting = cacheability == Cacheability.SIDE_EFFECTING.value
         loop_tripped = loop_count >= self.s.loop_threshold
@@ -206,6 +222,10 @@ class Redundant:
             ),
             verifier=self.verifier,
             settings=self.s,
+        )
+        print(
+            f"[redundant] DECISION   tool={tool_name!r}  agent={agent_id!r}"
+            f"  decision={decision.decision.value!r}  explanation={decision.explanation!r}"
         )
 
         return self._finalize(
@@ -292,11 +312,16 @@ class Redundant:
         # Baseline mode (firewall off) never writes to the cache/index: it only
         # measures raw spend and must not seed reuse for later runs.
         if self.enabled and d in (Decision.EXECUTE, Decision.COMPRESS_AND_EXECUTE):
+            _write_key = self.store._exact_key(scope, input_hash)
             try:
                 self.store.put_exact(scope, record)
+                print(
+                    f"[redundant] CACHE_WRITE  tool={tool_name!r}  hash={input_hash!r}"
+                    f"  redis_key={_write_key!r}  call_id={call_id!r}"
+                )
                 self.store.index_call(scope, record)
-            except Exception:
-                pass
+            except Exception as _exc:
+                print(f"[redundant] CACHE_WRITE FAILED  tool={tool_name!r}  error={_exc!r}")
 
         # Cluster id groups duplicates by normalized hash so the report can show
         # "web/repo search" style clusters.
@@ -313,9 +338,16 @@ class Redundant:
             source_call_id=decision.source_call_id, verifier_score=decision.verifier_score,
             cluster_id=cluster_id, sponsor_hooks=SPONSOR_HOOKS_BY_DECISION.get(d, []),
         )
+        _stream_key = self.store.stream_key(self.run_id)
         try:
             event.event_id = self.store.emit_event(event)
-        except Exception:
+            print(
+                f"[redundant] XADD  stream={_stream_key!r}"
+                f"  event_id={event.event_id!r}  decision={d.value!r}"
+                f"  tool={tool_name!r}  agent={agent_id!r}"
+            )
+        except Exception as _exc:
+            print(f"[redundant] XADD FAILED  stream={_stream_key!r}  error={_exc!r}")
             event.event_id = call_id
         # Attach output for in-process callers (e.g. Band agents) without bloating
         # the streamed JSON.
@@ -323,12 +355,14 @@ class Redundant:
         return event
 
     def _call_openai(self, messages: list[dict[str, Any]], model: str) -> str:
+        # Always use OpenAI; remap any claude model name to gpt-4o-mini
+        oai_model = "gpt-4o-mini" if model.startswith("claude") else model
         if self._openai is None:
             from openai import OpenAI
 
             self._openai = OpenAI(api_key=self.s.openai_api_key)
         resp = self._openai.chat.completions.create(
-            model=model, max_tokens=1024, messages=messages,
+            model=oai_model, max_tokens=1024, messages=messages,
         )
         return resp.choices[0].message.content or ""
 

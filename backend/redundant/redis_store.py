@@ -71,10 +71,14 @@ class RedisStore:
         self.r.set(key, record.model_dump_json(), ex=ttl)
 
     def get_exact(self, scope_key: str, input_hash: str) -> Optional[CallRecord]:
-        raw = self.r.get(self._exact_key(scope_key, input_hash))
+        key = self._exact_key(scope_key, input_hash)
+        raw = self.r.get(key)
         if not raw:
+            print(f"[redis_store] GET_EXACT MISS  key={key!r}")
             return None
-        return CallRecord.model_validate_json(raw)
+        record = CallRecord.model_validate_json(raw)
+        print(f"[redis_store] GET_EXACT HIT   key={key!r}  source_call_id={record.call_id!r}")
+        return record
 
     def incr_loop(self, run_id: str, input_hash: str) -> int:
         key = self._loop_key(run_id, input_hash)
@@ -199,8 +203,14 @@ class RedisStore:
     # --- Step 8: streams + run metadata ------------------------------------
     def emit_event(self, event: RedundantEvent) -> str:
         """XADD one event; backfills event_id with the stream ID. Returns the ID."""
-        sid = self.r.xadd(self.stream_key(event.run_id), {"payload": event.model_dump_json()})
-        return sid.decode() if isinstance(sid, bytes) else str(sid)
+        key = self.stream_key(event.run_id)
+        sid = self.r.xadd(key, {"payload": event.model_dump_json()})
+        sid_str = sid.decode() if isinstance(sid, bytes) else str(sid)
+        print(
+            f"[redis_store] XADD  stream={key!r}  sid={sid_str!r}"
+            f"  decision={event.decision.value!r}  tool={event.tool_name!r}"
+        )
+        return sid_str
 
     def read_events(self, run_id: str, after: str = "0", count: int = 1000) -> list[RedundantEvent]:
         start = "-" if after in ("0", "", None) else f"({after}"

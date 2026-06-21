@@ -14,7 +14,7 @@ PROMPT = (
 class ReportAgent:
     agent_id = "ReportAgent"
 
-    def run_overlap(self, *, room: BandRoomAdapter, runtime: RedundantRuntime, parent_span_id: str, task: str) -> None:
+    def run_overlap(self, *, room: BandRoomAdapter, runtime: RedundantRuntime, parent_span_id: str, task: str, research_queries: list[str] | None = None) -> None:
         span_id = runtime.writer.start_agent_span(self.agent_id, parent_span_id, "overlap request")
         request = runtime.llm(
             {
@@ -30,12 +30,14 @@ class ReportAgent:
         )
         room.post(self.agent_id, request.output, references=[request.span_id])
 
+        # Reuse the same query ResearchAgent ran to trigger EXACT_REUSE from the cache.
+        overlap_query = (research_queries or ["agent cost optimization"])[0]
         exact = runtime.tool(
             {
                 "runId": runtime.run_id,
                 "agentId": self.agent_id,
                 "toolName": "search_docs",
-                "args": {"query": "agent cost optimization redis sentry"},
+                "args": {"query": overlap_query},
                 "cacheability": "pure",
                 "metadata": {"parent_span_id": span_id},
             }

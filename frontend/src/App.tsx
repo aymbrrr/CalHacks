@@ -165,7 +165,6 @@ export function App() {
         onSelectRun={setSelectedRun}
         mode={mode}
         onSelectMode={setMode}
-        onStartRun={handleStartRun}
         streamLabel={
           runStatus === "running"
             ? `live · ${liveEventCount} events`

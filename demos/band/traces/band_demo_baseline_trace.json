@@ -764,7 +764,7 @@
       "call_id": "s_032",
       "call_type": "tool",
       "cluster_id": "cluster_loop_verify_source",
-      "decision": "RUNAWAY_LOOP_ALERT",
+      "decision": "BLOCK_OR_WARN",
       "event_id": "e_028",
       "explanation": "The repeated input cleared the R_max=10 threshold and routed to the alert path.",
       "run_id": "run-001",
@@ -931,7 +931,7 @@
       "ts": "2026-06-20T19:00:12.110000Z"
     },
     {
-      "content": "RUNAWAY_LOOP_ALERT: verify_source repeated 12 times without convergence.",
+      "content": "Runaway-loop pattern complete. Backend decision for final verify_source call: BLOCK_OR_WARN. Loop guard triggered after repeated identical calls.",
       "kind": "message",
       "message_id": "m_009",
       "references": [

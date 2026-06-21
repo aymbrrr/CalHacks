@@ -5,8 +5,8 @@ from demos.band.redundant_runtime import RedundantRuntime
 
 
 PROMPT = (
-    "You are VerifierAgent. Produce a repeated flaky verification pattern so Redundant "
-    "can demonstrate runaway-loop detection without calling a live verifier."
+    "You are VerifierAgent. Repeatedly verify source quality until the Redundant loop guard "
+    "triggers; report the final backend decision accurately."
 )
 
 
@@ -32,9 +32,11 @@ class VerifierAgent:
                 }
             )
 
+        final_decision = last_result.decision if last_result else "BLOCK_OR_WARN"
         room.post(
             self.agent_id,
-            "RUNAWAY_LOOP_DETECTED: verify_source repeated 12 times without convergence.",
+            f"Runaway-loop pattern complete. Backend decision for final verify_source call: "
+            f"{final_decision}. Loop guard triggered after repeated identical calls.",
             references=[last_result.span_id] if last_result else [],
         )
         runtime.writer.finish_agent_span(span_id, "Emitted flaky verifier loop status.")
