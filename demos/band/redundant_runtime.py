@@ -12,7 +12,7 @@ from .trace_writer import TraceWriter, input_hash
 
 
 # Real model name used for LLM calls; can be overridden via REDUNDANT_DEFAULT_MODEL.
-LLM_MODEL = os.getenv("REDUNDANT_DEFAULT_MODEL", "claude-haiku-4-5")
+LLM_MODEL = os.getenv("REDUNDANT_DEFAULT_MODEL", "claude-haiku-4-5-20251001")
 TOOL_MODEL = "tool:scripted"
 
 # How many identical calls in a row trigger a loop block in the local shim
@@ -86,7 +86,7 @@ def _log_integrations() -> None:
     else:
         masked_redis = redis_url
     has_openai = bool(_SETTINGS.openai_api_key)
-    has_anthropic = bool(_SETTINGS.anthropic_api_key)
+    has_anthropic = bool(os.environ.get("ANTHROPIC_API_KEY", ""))
     print(
         f"[redundant_runtime] Config — "
         f"Redis: {masked_redis} | "
@@ -617,7 +617,12 @@ class RedundantRuntime:
         try:
             from anthropic import Anthropic
             client = Anthropic(api_key=api_key)
-            resp = client.messages.create(model=model, max_tokens=512, messages=messages)
+            system_parts = [m["content"] for m in messages if m.get("role") == "system"]
+            user_messages = [m for m in messages if m.get("role") != "system"]
+            kwargs: dict[str, Any] = {"model": model, "max_tokens": 512, "messages": user_messages}
+            if system_parts:
+                kwargs["system"] = "\n\n".join(system_parts)
+            resp = client.messages.create(**kwargs)
             return "\n".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
         except Exception as exc:
             print(f"[redundant_runtime] Direct Anthropic call failed: {exc!r}")

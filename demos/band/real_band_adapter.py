@@ -63,11 +63,11 @@ class OutboundMessage:
 
 
 class RealBandDemoState:
-    def __init__(self, *, run_id: str, trace_out: Path) -> None:
+    def __init__(self, *, run_id: str, trace_out: Path, store=None) -> None:
         self.run_id = run_id
         self.trace_out = trace_out
         self.writer = TraceWriter(run_id=run_id, mode="real-band", task=TASK)
-        self.runtime = RedundantRuntime(run_id=run_id, mode="redundant", writer=self.writer)
+        self.runtime = RedundantRuntime(run_id=run_id, mode="redundant", writer=self.writer, store=store)
         self.lock = asyncio.Lock()
         self.room_span_id: str | None = None
         self.finished_room = False

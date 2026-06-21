@@ -323,6 +323,8 @@ class Redundant:
         return event
 
     def _call_openai(self, messages: list[dict[str, Any]], model: str) -> str:
+        if model.startswith("claude"):
+            return self._call_anthropic(messages, model)
         if self._openai is None:
             from openai import OpenAI
 
@@ -331,6 +333,19 @@ class Redundant:
             model=model, max_tokens=1024, messages=messages,
         )
         return resp.choices[0].message.content or ""
+
+    def _call_anthropic(self, messages: list[dict[str, Any]], model: str) -> str:
+        import os as _os
+        from anthropic import Anthropic
+        api_key = _os.environ.get("ANTHROPIC_API_KEY", "")
+        client = Anthropic(api_key=api_key)
+        system_parts = [m["content"] for m in messages if m.get("role") == "system"]
+        user_messages = [m for m in messages if m.get("role") != "system"]
+        kwargs: dict[str, Any] = {"model": model, "max_tokens": 1024, "messages": user_messages}
+        if system_parts:
+            kwargs["system"] = "\n\n".join(system_parts)
+        resp = client.messages.create(**kwargs)
+        return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
 
 
 def _reuse_savings_from_source(src, call_type: CallType) -> dict:

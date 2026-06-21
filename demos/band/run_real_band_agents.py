@@ -66,7 +66,18 @@ def load_config_with_aliases(
     )
 
 
-async def run_agents(*, run_id: str, trace_out: Path) -> None:
+def run_real_band_demo(run_id: str, mode: str = "redundant", store=None) -> None:
+    """Callable entry point for the backend API thread.
+
+    Starts all four Band SDK agents and blocks until they disconnect.
+    `store` is the backend's RedisStore — passed through to RedundantRuntime so
+    events land in the same store the API's SSE endpoint reads from.
+    """
+    import asyncio as _asyncio
+    _asyncio.run(run_agents(run_id=run_id, trace_out=default_trace_path(), store=store))
+
+
+async def run_agents(*, run_id: str, trace_out: Path, store=None) -> None:
     try:
         from band import Agent
         from band.config import load_agent_config
@@ -82,7 +93,7 @@ async def run_agents(*, run_id: str, trace_out: Path) -> None:
     print("Create a Band chat room, add the four remote agents, then send:")
     print("@ResearchAgent Research agent cost optimization tools, compare Redis/Sentry-style approaches, and produce a short recommendation.")
 
-    state = RealBandDemoState(run_id=run_id, trace_out=trace_out)
+    state = RealBandDemoState(run_id=run_id, trace_out=trace_out, store=store)
     agent_runs = []
     for spec in AGENTS:
         agent_id, api_key, config_key = load_config_with_aliases(load_agent_config, spec)

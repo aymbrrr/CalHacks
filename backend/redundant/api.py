@@ -121,15 +121,13 @@ def _execute_run(run: Run, store) -> None:
         if run.mode == "band":
             import os as _os
             import sys as _sys
-            # Ensure repo root is on sys.path so demos.band is importable regardless
-            # of how the server was started.
             _repo_root = _os.path.abspath(
                 _os.path.join(_os.path.dirname(__file__), "../../..")
             )
             if _repo_root not in _sys.path:
                 _sys.path.insert(0, _repo_root)
-            from demos.band.run_band_demo import run_band_demo
-            run_band_demo(run.run_id, "redundant", store)
+            from demos.band.run_real_band_agents import run_real_band_demo
+            run_real_band_demo(run.run_id, "redundant", store)
         else:
             run_demo_task(run.run_id, run.mode, store)
         run.status = "complete"
