@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -71,7 +72,11 @@ class RealBandDemoState:
         self.lock = asyncio.Lock()
         self.room_span_id: str | None = None
         self.finished_room = False
-        self.completed_steps: set[str] = set()
+        # Maps step name → task hash it was completed for.
+        # A step is skipped only when the incoming task hashes to the same value.
+        self.completed_steps: dict[str, str] = {}
+        self.research_queries: list[str] = []
+        self.current_task: str = ""
 
     def ensure_room_started(self, *, task: str, room_id: str) -> str:
         if self.room_span_id is None:
@@ -186,6 +191,7 @@ class LocalRedundantBandAdapter(SimpleAdapter):
         room_id: str,
     ) -> None:
         content = getattr(msg, "content", "") or TASK
+        print(f"REAL BAND MODE: {self.agent_name} on_message bootstrap={is_session_bootstrap} content={content[:60]!r}")
         async with self.state.lock:
             parent_span_id = self.state.ensure_room_started(task=content, room_id=room_id)
             outbox: list[OutboundMessage] = []
@@ -204,29 +210,36 @@ class LocalRedundantBandAdapter(SimpleAdapter):
             elif self.agent_name == "VerifierAgent":
                 self._run_verifier(room=room, parent_span_id=parent_span_id)
             else:
-                room.post(self.agent_name, f"Unknown demo agent: {self.agent_name}")
+                room.post(self.agent_name, f"Unknown agent: {self.agent_name}")
 
             self.state.write_trace()
 
         await self._flush_outbox(outbox, tools)
 
     def _run_research(self, *, room: RealBandRoom, parent_span_id: str, task: str) -> None:
-        if "research" in self.state.completed_steps:
-            room.post("ResearchAgent", "ResearchAgent already completed the demo research step.")
+        task_hash = hashlib.md5(task.strip().lower().encode()).hexdigest()
+        if self.state.completed_steps.get("research") == task_hash:
+            room.post("ResearchAgent", "ResearchAgent already completed this research task.")
             return
 
-        ResearchAgent().run(room=room, runtime=self.state.runtime, parent_span_id=parent_span_id, task=task)
-        self.state.completed_steps.add("research")
+        # New or different task — reset downstream steps so the full flow reruns.
+        if "research" in self.state.completed_steps:
+            self.state.completed_steps.clear()
+
+        queries = ResearchAgent().run(room=room, runtime=self.state.runtime, parent_span_id=parent_span_id, task=task)
+        self.state.research_queries = queries or []
+        self.state.current_task = task
+        self.state.completed_steps["research"] = task_hash
         room.queue_handoff(
-            content="@ReportAgent please continue the Redundant demo by asking the overlapping questions.",
+            content="@ReportAgent please continue by asking the overlapping questions.",
             mentions=["ReportAgent"],
         )
 
     def _run_report(self, *, room: RealBandRoom, parent_span_id: str) -> None:
         report = ReportAgent()
         if "report_overlap" not in self.state.completed_steps:
-            report.run_overlap(room=room, runtime=self.state.runtime, parent_span_id=parent_span_id, task=TASK)
-            self.state.completed_steps.add("report_overlap")
+            report.run_overlap(room=room, runtime=self.state.runtime, parent_span_id=parent_span_id, task=self.state.current_task, research_queries=self.state.research_queries)
+            self.state.completed_steps["report_overlap"] = "done"
             room.queue_handoff(
                 content="@AuditAgent please run the exact duplicate audit for the canonical search query.",
                 mentions=["AuditAgent"],
@@ -239,7 +252,7 @@ class LocalRedundantBandAdapter(SimpleAdapter):
 
         if "verifier" in self.state.completed_steps and "report_final" not in self.state.completed_steps:
             report.write_final(room=room, runtime=self.state.runtime, parent_span_id=parent_span_id)
-            self.state.completed_steps.add("report_final")
+            self.state.completed_steps["report_final"] = "done"
             self.state.finish_room_once()
             return
 
@@ -250,8 +263,8 @@ class LocalRedundantBandAdapter(SimpleAdapter):
             room.post("AuditAgent", "AuditAgent already completed the duplicate audit.")
             return
 
-        AuditAgent().run(room=room, runtime=self.state.runtime, parent_span_id=parent_span_id)
-        self.state.completed_steps.add("audit")
+        AuditAgent().run(room=room, runtime=self.state.runtime, parent_span_id=parent_span_id, research_queries=self.state.research_queries)
+        self.state.completed_steps["audit"] = "done"
 
     def _run_verifier(self, *, room: RealBandRoom, parent_span_id: str) -> None:
         if "verifier" in self.state.completed_steps:
@@ -259,7 +272,7 @@ class LocalRedundantBandAdapter(SimpleAdapter):
             return
 
         VerifierAgent().run(room=room, runtime=self.state.runtime, parent_span_id=parent_span_id)
-        self.state.completed_steps.add("verifier")
+        self.state.completed_steps["verifier"] = "done"
         room.queue_handoff(
             content="@ReportAgent VerifierAgent is done; please write the final recommendation.",
             mentions=["ReportAgent"],
@@ -270,6 +283,11 @@ class LocalRedundantBandAdapter(SimpleAdapter):
             await self._send_band_message(tools, message.content, message.mentions)
 
     async def _send_band_message(self, tools: Any, content: str, mentions: list[str]) -> None:
-        # Band requires at least one mention; normalize_mentions guarantees this.
-        await tools.send_message(content, normalize_mentions(mentions))
+        resolved = normalize_mentions(mentions)
+        print(f"REAL BAND MODE: {self.agent_name} → sending to {resolved}: {content[:60]!r}")
+        try:
+            await tools.send_message(content, resolved)
+            print(f"REAL BAND MODE: {self.agent_name} → send OK")
+        except Exception as exc:
+            print(f"REAL BAND MODE: {self.agent_name} → send FAILED: {exc!r}")
 

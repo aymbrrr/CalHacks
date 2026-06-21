@@ -41,10 +41,17 @@ def default_trace_path() -> Path:
 
 def load_dotenv_if_available() -> None:
     try:
-        from dotenv import load_dotenv
+        from dotenv import find_dotenv, load_dotenv
     except ImportError:
         return
-    load_dotenv()
+    load_dotenv(find_dotenv(usecwd=True))
+
+
+def enable_band_debug_logging() -> None:
+    import logging
+    logging.basicConfig(level=logging.DEBUG, format="[%(name)s] %(levelname)s %(message)s")
+    for name in ("band", "band.runtime", "band.platform", "band.preprocessing"):
+        logging.getLogger(name).setLevel(logging.DEBUG)
 
 
 def load_config_with_aliases(
@@ -88,6 +95,7 @@ async def run_agents(*, run_id: str, trace_out: Path, store=None) -> None:
         ) from exc
 
     load_dotenv_if_available()
+    enable_band_debug_logging()
 
     print(AGENT_STARTUP_LINE)
     print("Create a Band chat room, add the four remote agents, then send:")

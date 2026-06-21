@@ -33,8 +33,8 @@ python demos/band/replay_trace.py demos/band/traces/band_demo_trace.json --run-i
 
 - `ResearchAgent`: plans the research, searches docs, scans wrapper patterns, summarizes the shared source, and posts findings.
 - `ReportAgent`: reads Band context, repeats overlapping calls, accepts safe reuse, blocks unsafe semantic reuse, and writes the final recommendation.
-- `AuditAgent`: deliberately repeats the canonical search query so the exact duplicate cluster spans three distinct agents.
-- `VerifierAgent`: calls `verify_source` 12 times with unchanged uncertainty to trigger `RUNAWAY_LOOP_ALERT`.
+- `AuditAgent`: deliberately repeats the canonical search query; the 3rd identical call triggers the loop guard, producing `BLOCK_OR_WARN` rather than `EXACT_REUSE`.
+- `VerifierAgent`: calls `verify_source` 12 times with unchanged uncertainty to trigger `BLOCK_OR_WARN` (loop guard).
 
 ## Expected Moments
 
@@ -43,7 +43,7 @@ python demos/band/replay_trace.py demos/band/traces/band_demo_trace.json --run-i
 - Semantic reuse: `ReportAgent.scan_repo("tool cache decorator")` reuses `ResearchAgent.scan_repo("cached tool wrapper")`.
 - Summary reuse: both research and report summarize `https://redundant.dev/examples/agent-cost-caching`.
 - Unsafe semantic block: Redis cache invalidation docs are rejected for the Sentry alert routing query.
-- Runaway alert: `VerifierAgent.verify_source(...)` runs 12 times and emits `RUNAWAY_LOOP_ALERT`.
+- Runaway alert: `VerifierAgent.verify_source(...)` runs 12 times; from the 3rd call onward the backend emits `BLOCK_OR_WARN` (loop guard).
 
 ## Trace Files
 
