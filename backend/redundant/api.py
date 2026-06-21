@@ -43,17 +43,14 @@ _store = None
 
 
 def _build_store():
-    try:
-        from redundant.redis_store import RedisStore
-
-        store = RedisStore(SETTINGS)
-        store.ping()
-        return store
-    except Exception:
-        # Fall back to in-memory so the demo/UI still works offline.
-        from redundant.memory_store import InMemoryStore
-
-        return InMemoryStore(SETTINGS)
+    from redundant.redis_store import RedisStore
+    store = RedisStore(SETTINGS)
+    store.ping()
+    return store
+    # InMemoryStore fallback removed — Redis required for live data.
+    # except Exception:
+    #     from redundant.memory_store import InMemoryStore
+    #     return InMemoryStore(SETTINGS)
 
 
 def get_store():
@@ -122,8 +119,10 @@ def _execute_run(run: Run, store) -> None:
         if run.mode == "band":
             import os as _os
             import sys as _sys
+            # api.py lives at <project>/backend/redundant/api.py so dirname is
+            # <project>/backend/redundant — ../.. reaches the project root.
             _repo_root = _os.path.abspath(
-                _os.path.join(_os.path.dirname(__file__), "../../..")
+                _os.path.join(_os.path.dirname(__file__), "../..")
             )
             if _repo_root not in _sys.path:
                 _sys.path.insert(0, _repo_root)
@@ -135,6 +134,7 @@ def _execute_run(run: Run, store) -> None:
     except Exception as exc:  # pragma: no cover - defensive
         run.status = "failed"
         run.error = str(exc)
+        print(f"[api] _execute_run FAILED run_id={run.run_id!r} error={exc!r}")
     finally:
         run.completed_at = _now()
         store.save_run(run)

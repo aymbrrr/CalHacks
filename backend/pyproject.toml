@@ -17,6 +17,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "networkx>=3.2",
     "sentry-sdk>=2.0",
+    "band-sdk>=1.0.0",
 ]
 
 [project.optional-dependencies]

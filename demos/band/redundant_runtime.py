@@ -14,10 +14,8 @@ from .trace_writer import TraceWriter, input_hash
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-BACKEND_ROOT = PROJECT_ROOT / "backend"
-for root in (PROJECT_ROOT, BACKEND_ROOT):
-    if str(root) not in sys.path:
-        sys.path.insert(0, str(root))
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 # Real model name used for LLM calls; can be overridden via REDUNDANT_DEFAULT_MODEL.
