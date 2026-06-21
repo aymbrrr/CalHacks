@@ -40,7 +40,7 @@ export function RerunBar({ reran, rerunData, originalCost, onRerun }: Props) {
           border: reran ? `1px solid ${theme.border}` : "none",
         }}
       >
-        {reran ? "✓ cache applied" : "▸ Re-run with cache"}
+        {reran ? "✓ savings preview" : "▸ Preview cache savings"}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         {reran && rerunData ? (
@@ -79,15 +79,15 @@ export function RerunBar({ reran, rerunData, originalCost, onRerun }: Props) {
                 borderRadius: 5,
               }}
             >
-              saved {formatDemoUsd(rerunData.saved)}
+              est. saved {formatDemoUsd(rerunData.saved)}
             </span>
             <span style={{ fontSize: 12, color: "var(--gt-dim)" }}>
-              {rerunData.cache_hits.length}× served from LangCache · verified read-only
+              {rerunData.cache_hits.length}× cacheable · estimated savings
             </span>
           </div>
         ) : (
           <span style={{ fontSize: 12.5, color: "var(--gt-dim)" }}>
-            Serve the cacheable duplicates from LangCache and watch the total drop. The runaway stays — it routes to an alert, not the cache.
+            Preview the savings from the cacheable duplicates served from LangCache. The runaway stays.It routes to an alert, not the cache.
           </span>
         )}
       </div>

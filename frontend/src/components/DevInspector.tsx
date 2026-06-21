@@ -23,7 +23,7 @@ const STUB: Record<Exclude<TabKey, "streams" | "sentry">, { title: string; body:
   cache: {
     title: "LangCache — key (tool_name, input_hash)",
     body:
-      "Wasteful findings write here after the read-only allowlist gate; reads are served only on exact input_hash match within TTL. The cache-routed findings round-trip through this key on Re-run, dropping the total.",
+      "Wasteful findings write here after the read-only allowlist gate; reads are served only on exact input_hash match within TTL. The \"Preview cache savings\" button estimates the post-cache total from these cacheable findings; it doesn't actually re-run or read the cache.",
   },
   terac: {
     title: "Terac — verifier eval",

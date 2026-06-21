@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { hexA, theme } from "../theme";
 import { formatDemoUsd } from "../api/displayMoney";
 import { shortLabel } from "../api/modelInfo";
 import type { Finding, Span } from "../types";
+import { computeSpanLayout, type LaidOutSpan } from "./spanLayout";
 
 interface Props {
   spans: Span[];
@@ -26,9 +27,32 @@ interface BarShape {
 }
 
 const ROW_H = 30;
-const GAP = 5;
+// Lane packing geometry: lanes within a depth sit close together, while depth
+// blocks get a little extra breathing room so the hierarchy stays legible.
+const LANE_GAP = 4;
+const DEPTH_GAP = 9;
+const COLLISION_GAP_PX = 3;
+// Below this width (% of axis) a bar is too narrow for a readable label, so we
+// drop the text and rely on the hover tooltip instead.
+const LABEL_MIN_WIDTH_PCT = 6;
 
 export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding, onSelectFinding }: Props) {
+  // The chart body is fluid (bars are sized in %). We measure its rendered width
+  // only so the lane packer can translate the few-pixel collision gap into the
+  // time domain; the layout otherwise stays resolution-independent.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [bodyWidth, setBodyWidth] = useState(900);
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const update = () => setBodyWidth(el.clientWidth || 900);
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // Compute every span's depth from parent_span_id.
   //
   // The bundled demo trace contains an intentional cycle (s_07 ↔ s_08 ↔ s_09)
@@ -36,7 +60,7 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
   // The walker MUST tolerate cycles in the parent chain or React stack-
   // overflows mid-render. We break the cycle by tracking in-progress ids and
   // treating any back-edge as depth 0 (treating the cycle member as a root).
-  const { depthBySpan, depthCount, totalMs } = useMemo(() => {
+  const { depthBySpan, totalMs } = useMemo(() => {
     const parents = new Map<string, string | null>();
     for (const s of spans) parents.set(s.span_id, s.parent_span_id);
     const memo = new Map<string, number>();
@@ -70,34 +94,52 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
     return m;
   }, [findings]);
 
-  const bars: BarShape[] = useMemo(() => {
-    const offsetStart = Math.min(...spans.map((s) => s.start_time));
-    return spans.map((sp) => {
+  // Collision-free lane layout: group by depth, pack overlapping spans into
+  // separate lanes, and stack depth blocks so nothing overlaps. See spanLayout.ts.
+  const { layout, barById } = useMemo(() => {
+    const offsetStart = spans.length ? Math.min(...spans.map((s) => s.start_time)) : 0;
+    const lay = computeSpanLayout<Span>(
+      spans,
+      { offsetStart, totalMs, widthPx: bodyWidth },
+      {
+        rowHeight: ROW_H,
+        laneGap: LANE_GAP,
+        depthGap: DEPTH_GAP,
+        collisionGapPx: COLLISION_GAP_PX,
+        getStart: (s) => s.start_time,
+        getEnd: (s) => s.end_time,
+        getDepth: (s) => depthBySpan.get(s.span_id) ?? 0,
+      }
+    );
+
+    const map = new Map<string, BarShape & { positioned: LaidOutSpan<Span> }>();
+    for (const p of lay.spans) {
+      const sp = p.span;
       const finding = findingBySpan.get(sp.span_id) ?? null;
       const color = barColor(finding, diagnosed, reran);
-      const left = ((sp.start_time - offsetStart) / totalMs) * 100;
-      const width = Math.max(((sp.end_time - sp.start_time) / totalMs) * 100, 0.5);
-      const depth = depthBySpan.get(sp.span_id) ?? 0;
-      const top = depth * (ROW_H + GAP);
-      const isRoot = depth === 0;
+      const isRoot = p.depth === 0;
       const label = isRoot
         ? sp.name
         : sp.kind === "agent"
         ? sp.agent_name
         : sp.name.replace("tool:", "").replace("llm:", "");
-      return {
+      map.set(sp.span_id, {
         span: sp,
-        left,
-        width,
-        top,
-        height: ROW_H,
+        left: p.leftPct,
+        width: p.widthPct,
+        top: p.top,
+        height: p.height,
         color,
         selected: !!finding && finding.finding_id === selectedFinding && diagnosed,
         isRoot,
         label,
-      };
-    });
-  }, [spans, findingBySpan, diagnosed, reran, totalMs, depthBySpan, selectedFinding]);
+        positioned: p,
+      });
+    }
+    return { layout: lay, barById: map };
+  }, [spans, findingBySpan, diagnosed, reran, totalMs, depthBySpan, selectedFinding, bodyWidth]);
+
+  const bars = useMemo(() => Array.from(barById.values()), [barById]);
 
   // Axis ticks (0–100%).
   const axisTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => ({
@@ -105,14 +147,16 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
     pct: f * 100,
   }));
 
-  // The runaway loop marker.
+  // The runaway loop marker — anchored to the runaway span's actual lane so it
+  // tracks the lane-packed layout instead of a hard-coded depth row.
   const runaway = findings.find((f) => f.severity === "runaway");
-  const runawayLeftSpan = runaway ? spans.find((s) => s.span_id === runaway.span_ids[0]) : null;
-  const runawayLeftPct = runawayLeftSpan
-    ? ((runawayLeftSpan.start_time - Math.min(...spans.map((s) => s.start_time))) / totalMs) * 100
-    : null;
+  const runawayBar = runaway ? barById.get(runaway.span_ids[0]) : null;
+  const runawayLeftPct = runawayBar ? runawayBar.left : null;
+  const runawayTop = runawayBar ? runawayBar.top + runawayBar.height + 4 : 0;
 
-  const containerHeight = depthCount * (ROW_H + GAP) + 18;
+  // Chart height follows the computed lane count, with room for the marker chip.
+  const markerSpace = diagnosed && runawayBar ? 26 : 0;
+  const containerHeight = Math.max(layout.totalHeight + markerSpace, ROW_H) + 4;
 
   return (
     <div
@@ -161,13 +205,13 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
         ))}
       </div>
 
-      <div style={{ position: "relative", height: containerHeight, width: "100%" }}>
+      <div ref={bodyRef} style={{ position: "relative", height: containerHeight, width: "100%" }}>
         {bars.map((b) => {
           const tip = `${b.span.name}  ·  ${b.span.agent_name}\n${shortLabel(b.span.model)} · ${b.span.tokens.input + b.span.tokens.output} tok · ${(
             (b.span.end_time - b.span.start_time) / 1000
           ).toFixed(2)}s · ${formatDemoUsd(b.span.cost_usd)}\nin: ${b.span.input}`;
           const finding = findingBySpan.get(b.span.span_id);
-          const wideEnough = b.width > 7;
+          const wideEnough = b.width > LABEL_MIN_WIDTH_PCT;
           return (
             <div
               key={b.span.span_id}
@@ -186,23 +230,30 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
                 overflow: "hidden",
                 display: "flex",
                 alignItems: "center",
+                boxSizing: "border-box",
                 boxShadow: b.selected ? `0 0 0 1.5px ${b.color.bd}` : "none",
                 transition: "filter 0.12s",
               }}
             >
-              <span
-                style={{
-                  fontFamily: theme.mono,
-                  fontSize: 10.5,
-                  color: b.color.tx,
-                  whiteSpace: "nowrap",
-                  padding: "0 7px",
-                  opacity: wideEnough ? 1 : 0,
-                  fontWeight: b.isRoot ? 600 : 400,
-                }}
-              >
-                {b.label}
-              </span>
+              {wideEnough && (
+                <span
+                  style={{
+                    fontFamily: theme.mono,
+                    fontSize: 10.5,
+                    color: b.color.tx,
+                    // Clip the label inside the bar so it never spills into a neighbour.
+                    flex: 1,
+                    minWidth: 0,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    padding: "0 7px",
+                    fontWeight: b.isRoot ? 600 : 400,
+                  }}
+                >
+                  {b.label}
+                </span>
+              )}
             </div>
           );
         })}
@@ -212,7 +263,7 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
             style={{
               position: "absolute",
               left: `calc(${runawayLeftPct}% )`,
-              top: 2 * (ROW_H + GAP) + ROW_H + 4,
+              top: runawayTop,
               whiteSpace: "nowrap",
             }}
           >
