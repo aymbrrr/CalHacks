@@ -26,6 +26,16 @@ interface BarShape {
   label: string;
 }
 
+interface GroupShape {
+  id: string;
+  members: Span[];
+  left: number;
+  width: number;
+  top: number;
+  height: number;
+  hasRed: boolean;
+}
+
 const ROW_H = 30;
 // Lane packing geometry: lanes within a depth sit close together, while depth
 // blocks get a little extra breathing room so the hierarchy stays legible.
@@ -35,6 +45,26 @@ const COLLISION_GAP_PX = 3;
 // Below this width (% of axis) a bar is too narrow for a readable label, so we
 // drop the text and rely on the hover tooltip instead.
 const LABEL_MIN_WIDTH_PCT = 6;
+// Only the most recent slice of the trace is shown — spans whose end_time is
+// older than this window (measured back from the latest span) are hidden.
+const WINDOW_MS = 60_000;
+// When an overlap-connected cluster at one depth would stack more than this many
+// lanes deep, it collapses into a single "N calls" box instead of a tall stack.
+const COLLAPSE_LANE_THRESHOLD = 3;
+
+// A laid-out unit fed to the lane packer: either a single span or a collapsed
+// cluster of spans rendered as one box.
+type LayoutItem =
+  | { kind: "span"; span: Span; depth: number }
+  | {
+      kind: "group";
+      id: string;
+      depth: number;
+      start: number;
+      end: number;
+      members: Span[];
+      hasRed: boolean;
+    };
 
 export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding, onSelectFinding }: Props) {
   // The chart body is fluid (bars are sized in %). We measure its rendered width
@@ -42,6 +72,26 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
   // time domain; the layout otherwise stays resolution-independent.
   const bodyRef = useRef<HTMLDivElement>(null);
   const [bodyWidth, setBodyWidth] = useState(900);
+
+  // Collapsed clusters the user has clicked to expand back into individual bars.
+  // Keys are derived from span ids so they stay stable across polling re-renders;
+  // ids for clusters that no longer exist are simply ignored.
+  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
+  const toggleCluster = (id: string) =>
+    setExpandedClusters((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  // Show only the last minute of activity, measured back from the latest span's
+  // end_time (the trace's own clock, so loaded historical traces still render).
+  const windowedSpans = useMemo(() => {
+    if (!spans.length) return spans;
+    const latestEnd = Math.max(...spans.map((s) => s.end_time));
+    const cutoff = latestEnd - WINDOW_MS;
+    return spans.filter((s) => s.end_time >= cutoff);
+  }, [spans]);
   useEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
@@ -62,7 +112,7 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
   // treating any back-edge as depth 0 (treating the cycle member as a root).
   const { depthBySpan, totalMs } = useMemo(() => {
     const parents = new Map<string, string | null>();
-    for (const s of spans) parents.set(s.span_id, s.parent_span_id);
+    for (const s of windowedSpans) parents.set(s.span_id, s.parent_span_id);
     const memo = new Map<string, number>();
     const depth = (id: string, inFlight: Set<string>): number => {
       const cached = memo.get(id);
@@ -77,15 +127,15 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
     };
     const map = new Map<string, number>();
     let maxDepth = 0;
-    for (const s of spans) {
+    for (const s of windowedSpans) {
       const d = depth(s.span_id, new Set());
       map.set(s.span_id, d);
       if (d > maxDepth) maxDepth = d;
     }
-    const start = Math.min(...spans.map((s) => s.start_time));
-    const end = Math.max(...spans.map((s) => s.end_time));
+    const start = windowedSpans.length ? Math.min(...windowedSpans.map((s) => s.start_time)) : 0;
+    const end = windowedSpans.length ? Math.max(...windowedSpans.map((s) => s.end_time)) : 1;
     return { depthBySpan: map, depthCount: maxDepth + 1, totalMs: Math.max(end - start, 1) };
-  }, [spans]);
+  }, [windowedSpans]);
 
   // Reverse-lookup: span_id -> finding so we can color quickly.
   const findingBySpan = useMemo(() => {
@@ -96,25 +146,57 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
 
   // Collision-free lane layout: group by depth, pack overlapping spans into
   // separate lanes, and stack depth blocks so nothing overlaps. See spanLayout.ts.
-  const { layout, barById } = useMemo(() => {
-    const offsetStart = spans.length ? Math.min(...spans.map((s) => s.start_time)) : 0;
-    const lay = computeSpanLayout<Span>(
-      spans,
+  //
+  // Before packing we collapse any overlap-connected cluster at a depth that
+  // would stack more than COLLAPSE_LANE_THRESHOLD lanes deep into a single
+  // "N calls" box (unless the user has expanded it). Because a connected cluster
+  // is disjoint from every other cluster at its depth, feeding the packer one
+  // interval spanning the cluster makes it occupy a single lane, so the chart
+  // shrinks vertically with no changes to the generic packer.
+  const { layout, barById, groupById } = useMemo(() => {
+    const offsetStart = windowedSpans.length ? Math.min(...windowedSpans.map((s) => s.start_time)) : 0;
+    // Match the packer's pixel→time gap so cluster breaks line up with lane breaks.
+    const gapMs = bodyWidth > 0 ? (COLLISION_GAP_PX / bodyWidth) * totalMs : 0;
+
+    const items = buildLayoutItems(
+      windowedSpans,
+      (s) => depthBySpan.get(s.span_id) ?? 0,
+      gapMs,
+      expandedClusters,
+      (s) => isRedSpan(s, findingBySpan, diagnosed, reran)
+    );
+
+    const lay = computeSpanLayout<LayoutItem>(
+      items,
       { offsetStart, totalMs, widthPx: bodyWidth },
       {
         rowHeight: ROW_H,
         laneGap: LANE_GAP,
         depthGap: DEPTH_GAP,
         collisionGapPx: COLLISION_GAP_PX,
-        getStart: (s) => s.start_time,
-        getEnd: (s) => s.end_time,
-        getDepth: (s) => depthBySpan.get(s.span_id) ?? 0,
+        getStart: (it) => (it.kind === "span" ? it.span.start_time : it.start),
+        getEnd: (it) => (it.kind === "span" ? it.span.end_time : it.end),
+        getDepth: (it) => it.depth,
       }
     );
 
-    const map = new Map<string, BarShape & { positioned: LaidOutSpan<Span> }>();
+    const map = new Map<string, BarShape & { positioned: LaidOutSpan<LayoutItem> }>();
+    const groups = new Map<string, GroupShape>();
     for (const p of lay.spans) {
-      const sp = p.span;
+      const it = p.span;
+      if (it.kind === "group") {
+        groups.set(it.id, {
+          id: it.id,
+          members: it.members,
+          hasRed: it.hasRed,
+          left: p.leftPct,
+          width: p.widthPct,
+          top: p.top,
+          height: p.height,
+        });
+        continue;
+      }
+      const sp = it.span;
       const finding = findingBySpan.get(sp.span_id) ?? null;
       const color = barColor(finding, diagnosed, reran);
       const isRoot = p.depth === 0;
@@ -136,10 +218,11 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
         positioned: p,
       });
     }
-    return { layout: lay, barById: map };
-  }, [spans, findingBySpan, diagnosed, reran, totalMs, depthBySpan, selectedFinding, bodyWidth]);
+    return { layout: lay, barById: map, groupById: groups };
+  }, [windowedSpans, findingBySpan, diagnosed, reran, totalMs, depthBySpan, selectedFinding, bodyWidth, expandedClusters]);
 
   const bars = useMemo(() => Array.from(barById.values()), [barById]);
+  const groups = useMemo(() => Array.from(groupById.values()), [groupById]);
 
   // Axis ticks (0–100%).
   const axisTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => ({
@@ -148,14 +231,20 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
   }));
 
   // The runaway loop marker — anchored to the runaway span's actual lane so it
-  // tracks the lane-packed layout instead of a hard-coded depth row.
+  // tracks the lane-packed layout instead of a hard-coded depth row. When that
+  // span is hidden inside a collapsed cluster, fall back to anchoring on the
+  // group box so the marker never disappears.
   const runaway = findings.find((f) => f.severity === "runaway");
-  const runawayBar = runaway ? barById.get(runaway.span_ids[0]) : null;
-  const runawayLeftPct = runawayBar ? runawayBar.left : null;
-  const runawayTop = runawayBar ? runawayBar.top + runawayBar.height + 4 : 0;
+  const runawaySpanId = runaway?.span_ids[0];
+  const runawayAnchor =
+    (runawaySpanId ? barById.get(runawaySpanId) : null) ??
+    (runawaySpanId ? groups.find((g) => g.members.some((m) => m.span_id === runawaySpanId)) : null) ??
+    null;
+  const runawayLeftPct = runawayAnchor ? runawayAnchor.left : null;
+  const runawayTop = runawayAnchor ? runawayAnchor.top + runawayAnchor.height + 4 : 0;
 
   // Chart height follows the computed lane count, with room for the marker chip.
-  const markerSpace = diagnosed && runawayBar ? 26 : 0;
+  const markerSpace = diagnosed && runawayAnchor ? 26 : 0;
   const containerHeight = Math.max(layout.totalHeight + markerSpace, ROW_H) + 4;
 
   return (
@@ -181,7 +270,7 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
           Flamegraph
         </span>
         <span style={{ fontFamily: theme.mono, fontSize: 11, color: "var(--gt-dimmer)", whiteSpace: "nowrap" }}>
-          {spans.length} spans · nested by call depth
+          {windowedSpans.length} spans · last 60s · nested by call depth
         </span>
         <span style={{ flex: 1 }} />
         <Legend />
@@ -258,6 +347,54 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
           );
         })}
 
+        {groups.map((g) => {
+          // Red when any member is red (diagnosed cycle/runaway or un-rerun
+          // repetition); otherwise neutral grey. Clicking expands the cluster.
+          const red = diagnosed && g.hasRed;
+          const bg = red ? hexA("#F87171", 0.4) : "#222B35";
+          const bd = red ? hexA("#F87171", 0.5) : "#323C48";
+          const tx = red ? "#F2B4B4" : "var(--gt-mut)";
+          return (
+            <div
+              key={g.id}
+              onClick={() => toggleCluster(g.id)}
+              title={`${g.members.length} overlapping calls — click to expand`}
+              style={{
+                position: "absolute",
+                left: g.left + "%",
+                width: g.width + "%",
+                top: g.top,
+                height: g.height,
+                background: bg,
+                border: `1.5px solid ${bd}`,
+                borderRadius: 3,
+                cursor: "pointer",
+                overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxSizing: "border-box",
+                transition: "filter 0.12s",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: theme.mono,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: tx,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  padding: "0 7px",
+                }}
+              >
+                {g.members.length} calls
+              </span>
+            </div>
+          );
+        })}
+
         {diagnosed && runawayLeftPct != null && (
           <div
             style={{
@@ -292,12 +429,119 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
   );
 }
 
+// Whether a span renders "red" (a problem worth surfacing) — mirrors barColor:
+// diagnosed repetition that hasn't been rerun, or a cycle/runaway. Semantic
+// duplicates are amber (not red) and rerun repetitions are green (not red).
+function isRedSpan(
+  span: Span,
+  findingBySpan: Map<string, Finding>,
+  diagnosed: boolean,
+  reran: boolean
+): boolean {
+  if (!diagnosed) return false;
+  const f = findingBySpan.get(span.span_id);
+  if (!f) return false;
+  if (f.type === "semantic_duplicate") return false;
+  if (f.type === "repetition") return !reran;
+  return true; // cycle / runaway
+}
+
+// Bucket spans by depth and, within each depth, find overlap-connected clusters.
+// A cluster whose first-fit lane count exceeds COLLAPSE_LANE_THRESHOLD (and isn't
+// in `expanded`) collapses into one "group" item; everything else passes through
+// as individual "span" items. Output order is not significant — the packer sorts.
+function buildLayoutItems(
+  spans: Span[],
+  getDepth: (s: Span) => number,
+  gapMs: number,
+  expanded: Set<string>,
+  isRed: (s: Span) => boolean
+): LayoutItem[] {
+  const byDepth = new Map<number, Span[]>();
+  for (const s of spans) {
+    const d = Math.max(0, getDepth(s));
+    const bucket = byDepth.get(d);
+    if (bucket) bucket.push(s);
+    else byDepth.set(d, [s]);
+  }
+
+  const items: LayoutItem[] = [];
+  for (const [depth, group] of byDepth) {
+    const sorted = group
+      .slice()
+      .sort((a, b) => a.start_time - b.start_time || a.end_time - b.end_time);
+
+    // Split into overlap-connected clusters: a new cluster starts when a span
+    // begins at/after the running max end (plus the same gap the packer uses).
+    let cluster: Span[] = [];
+    let clusterMaxEnd = -Infinity;
+    const flush = () => {
+      if (cluster.length) emitCluster(items, depth, cluster, gapMs, expanded, isRed);
+      cluster = [];
+      clusterMaxEnd = -Infinity;
+    };
+    for (const s of sorted) {
+      if (cluster.length && s.start_time >= clusterMaxEnd) flush();
+      cluster.push(s);
+      clusterMaxEnd = Math.max(clusterMaxEnd, s.end_time + gapMs);
+    }
+    flush();
+  }
+  return items;
+}
+
+function emitCluster(
+  out: LayoutItem[],
+  depth: number,
+  cluster: Span[],
+  gapMs: number,
+  expanded: Set<string>,
+  isRed: (s: Span) => boolean
+) {
+  // Lanes needed = first-fit lane count, same packing the renderer would do.
+  const laneEnds: number[] = [];
+  for (const s of cluster) {
+    let placed = -1;
+    for (let l = 0; l < laneEnds.length; l++) {
+      if (s.start_time >= laneEnds[l]) {
+        placed = l;
+        break;
+      }
+    }
+    if (placed === -1) {
+      placed = laneEnds.length;
+      laneEnds.push(0);
+    }
+    laneEnds[placed] = s.end_time + gapMs;
+  }
+  const lanesNeeded = laneEnds.length;
+  const id = `g:${depth}:${cluster[0].span_id}`;
+
+  if (lanesNeeded > COLLAPSE_LANE_THRESHOLD && !expanded.has(id)) {
+    out.push({
+      kind: "group",
+      id,
+      depth,
+      start: Math.min(...cluster.map((s) => s.start_time)),
+      end: Math.max(...cluster.map((s) => s.end_time)),
+      members: cluster,
+      hasRed: cluster.some(isRed),
+    });
+  } else {
+    for (const s of cluster) out.push({ kind: "span", span: s, depth });
+  }
+}
+
 function barColor(finding: Finding | null, diagnosed: boolean, reran: boolean) {
   if (!diagnosed || !finding) {
     return { bg: "#222B35", bd: "#323C48", tx: "var(--gt-mut)" };
   }
+  // After rerun, every LangCache-routed finding is served from cache → green.
+  // Alert-routed findings (the runaway loop → Sentry) are never cached → stay red.
+  if (reran && finding.route === "cache") {
+    return { bg: hexA("#4ADE80", 0.16), bd: hexA("#4ADE80", 0.5), tx: theme.greenSoft };
+  }
   if (finding.type === "repetition") {
-    if (reran) return { bg: hexA("#4ADE80", 0.16), bd: hexA("#4ADE80", 0.5), tx: theme.greenSoft };
     return { bg: hexA("#F87171", 0.16), bd: hexA("#F87171", 0.38), tx: theme.redSoft };
   }
   if (finding.type === "semantic_duplicate") {
