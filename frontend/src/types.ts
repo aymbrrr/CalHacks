@@ -75,6 +75,73 @@ export interface Run {
   error?: string | null;
 }
 
+export interface SuggestedFix {
+  fix_id: string;
+  title: string;
+  description: string;
+  sponsor_hook?: string | null;
+  code_hint?: string | null;
+}
+
+export interface DuplicateCluster {
+  cluster_id: string;
+  label: string;
+  calls: number;
+  unique_needed: number;
+  waste_percent: number;
+  saved_cost_usd: number;
+  saved_latency_ms: number;
+  agent_ids: string[];
+}
+
+export interface RunReport {
+  run_id: string;
+  attempted_calls: number;
+  executed_calls: number;
+  reused_or_blocked_calls: number;
+  redundant_rate: number;
+  estimated_baseline_cost_usd: number;
+  actual_cost_usd: number;
+  saved_cost_usd: number;
+  saved_latency_ms: number;
+  saved_tokens: number;
+  worst_duplicate_cluster?: string | null;
+  clusters: DuplicateCluster[];
+  fixes: SuggestedFix[];
+}
+
+/** Response shape of `GET /alerts`. */
+export interface AlertEvent {
+  finding_id?: string;
+  type?: string;
+  level?: string;
+  message?: string;
+  run_id?: string;
+  ts?: string | number;
+  [key: string]: unknown;
+}
+
+export interface AlertsResponse {
+  mock: boolean;
+  events: AlertEvent[];
+}
+
+/** Response shape of `POST /api/runs/{run_id}/rerun`. */
+export interface RerunCacheHit {
+  finding_id: string;
+  tool: string;
+  served_from_cache: boolean;
+  saved: number;
+}
+
+export interface RerunResponse {
+  run_id: string;
+  original_cost: number;
+  cached_cost: number;
+  saved: number;
+  cache_hits: RerunCacheHit[];
+}
+
 export interface RedundantEvent {
   event_id: string;
   run_id: string;

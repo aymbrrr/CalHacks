@@ -4,7 +4,38 @@
  *  backend is unreachable or when the page is loaded with `?source=static`.
  *  This is the demo-safety path required by `docs/UI_REQUIREMENTS.md` UR-13.
  */
-import type { FindingsResponse, Run } from "../types";
+import type { AlertsResponse, FindingsResponse, RerunResponse, Run, RunReport, SuggestedFix } from "../types";
+
+const FALLBACK_FIXES: SuggestedFix[] = [
+  {
+    fix_id: "cache-tool",
+    title: "Cache pure tools",
+    description: "Wrap repeated pure tool calls so identical inputs reuse results.",
+    sponsor_hook: "Redis",
+    code_hint: '@redundant.cached_tool(ttl="1h")\ndef web_search(q: str): ...',
+  },
+  {
+    fix_id: "stable-prefix",
+    title: "Stabilize prompt prefix",
+    description: "Move timestamps/IDs out of the stable prompt prefix so Anthropic's prompt cache can hit.",
+    sponsor_hook: "Anthropic",
+    code_hint: "messages = [SYSTEM, TOOLS, *turn]  # stable prefix",
+  },
+  {
+    fix_id: "compress-context",
+    title: "Compress bloated context",
+    description: "Compress large unsafe-to-reuse prompts before executing.",
+    sponsor_hook: "Token Company",
+    code_hint: "ctx = tokenco.compress(ctx, budget=2000)",
+  },
+  {
+    fix_id: "embed-lookup",
+    title: "Gate semantic reuse with the verifier",
+    description: "Replace a repeated classification with a vector lookup, gated by Terac's verifier on held-out labels.",
+    sponsor_hook: "Terac",
+    code_hint: "if verifier.equivalent(a, b):\n    reuse(a)",
+  },
+];
 
 const STATIC_PARAM = "source";
 const STATIC_VALUE = "static";
@@ -40,4 +71,83 @@ export async function listRuns(): Promise<Run[]> {
   } catch {
     return [];
   }
+}
+
+/** POST /api/runs/{run_id}/rerun. Falls back to a client-side projection from
+ *  the already-loaded findings so the cost-drop beat still works offline. */
+export async function rerun(runId: string, findings: FindingsResponse): Promise<RerunResponse> {
+  if (!forceStatic()) {
+    try {
+      const res = await fetch(`/api/runs/${encodeURIComponent(runId || "run-default")}/rerun`, {
+        method: "POST",
+      });
+      if (res.ok) return (await res.json()) as RerunResponse;
+    } catch {
+      // fall through
+    }
+  }
+  return projectRerun(runId, findings);
+}
+
+/** GET /api/runs/{run_id}/report → RunReport (fixes + clusters). Falls back to
+ *  a small static fix list so the panel stays populated when offline. */
+export async function getReport(runId: string): Promise<RunReport | null> {
+  if (forceStatic() || !runId) {
+    return synthReport(runId);
+  }
+  try {
+    return await fetchJson<RunReport>(`/api/runs/${encodeURIComponent(runId)}/report`);
+  } catch {
+    return synthReport(runId);
+  }
+}
+
+function synthReport(runId: string): RunReport {
+  return {
+    run_id: runId || "run-default",
+    attempted_calls: 0,
+    executed_calls: 0,
+    reused_or_blocked_calls: 0,
+    redundant_rate: 0,
+    estimated_baseline_cost_usd: 0,
+    actual_cost_usd: 0,
+    saved_cost_usd: 0,
+    saved_latency_ms: 0,
+    saved_tokens: 0,
+    worst_duplicate_cluster: null,
+    clusters: [],
+    fixes: FALLBACK_FIXES,
+  };
+}
+
+/** GET /alerts — Sentry incidents (mock when no DSN). Empty list on failure. */
+export async function getAlerts(): Promise<AlertsResponse> {
+  if (forceStatic()) return { mock: true, events: [] };
+  try {
+    return await fetchJson<AlertsResponse>("/alerts");
+  } catch {
+    return { mock: true, events: [] };
+  }
+}
+
+function projectRerun(runId: string, data: FindingsResponse): RerunResponse {
+  const cacheHits: RerunResponse["cache_hits"] = [];
+  let saved = 0;
+  for (const f of data.findings) {
+    if (f.route !== "cache") continue;
+    saved += f.dollar_cost;
+    cacheHits.push({
+      finding_id: f.finding_id,
+      tool: f.description.split(" ", 1)[0] || f.type,
+      served_from_cache: true,
+      saved: Number(f.dollar_cost.toFixed(6)),
+    });
+  }
+  return {
+    run_id: runId || "run-default",
+    original_cost: Number(data.total_cost_usd.toFixed(6)),
+    cached_cost: Number((data.total_cost_usd - saved).toFixed(6)),
+    saved: Number(saved.toFixed(6)),
+    cache_hits: cacheHits,
+  };
 }

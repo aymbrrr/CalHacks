@@ -296,3 +296,54 @@ async def get_alerts():
     """Sentry incidents fired in mock mode — powers the Sentry sponsor tab when
     running offline. Empty in real mode (events live on the Sentry dashboard)."""
     return {"mock": not sentry_dispatch._REAL_MODE, "events": sentry_dispatch.MOCK_EVENTS}
+
+
+# ---------------------------------------------------------------------------
+# /api/runs/{run_id}/rerun — projected cache-hit savings
+# ---------------------------------------------------------------------------
+# Derives a cost-after-cache projection from the same analysis the UI already
+# consumes via /findings. Deterministic; no live re-execution. This is the
+# data shape behind the "Re-run with cache" button (UI_REQUIREMENTS §3.4 /
+# UR-11).
+
+def _compute_rerun(run_id: str) -> dict:
+    findings_payload = _compute_findings(run_id, "")
+    total = findings_payload["total_cost_usd"]
+    findings = findings_payload["findings"]
+
+    cache_hits = []
+    saved_total = 0.0
+    for f in findings:
+        if f["route"] != "cache":
+            continue
+        # Best-effort tool label — repetition findings parse it out of the
+        # description ("web_search called 3x ..."); semantic duplicates use the
+        # finding type. The exact label only matters for the UI subline.
+        desc = f.get("description", "")
+        tool_label = desc.split(" ", 1)[0] if desc else f.get("type", "tool")
+        saved_total += f["dollar_cost"]
+        cache_hits.append({
+            "finding_id": f["finding_id"],
+            "tool": tool_label,
+            "served_from_cache": True,
+            "saved": round(f["dollar_cost"], 6),
+        })
+
+    cached = round(total - saved_total, 6)
+    return {
+        "run_id": run_id or "run-default",
+        "original_cost": round(total, 6),
+        "cached_cost": cached,
+        "saved": round(saved_total, 6),
+        "cache_hits": cache_hits,
+    }
+
+
+@app.post("/api/runs/{run_id}/rerun")
+async def rerun_with_cache(run_id: str):
+    """Project total cost with cacheable findings served from LangCache.
+
+    Pure derivation from the existing /findings analysis — no live LLM/tool
+    calls. Demo-safe and deterministic.
+    """
+    return await run_in_threadpool(_compute_rerun, run_id)
