@@ -62,6 +62,9 @@ class RedisStore:
     def stream_key(self, run_id: str) -> str:
         return f"stream:redundant:events:{run_id}"
 
+    def trace_key(self, run_id: str) -> str:
+        return f"trace:{run_id}"
+
     # --- Step 4: exact cache ------------------------------------------------
     def put_exact(self, scope_key: str, record: CallRecord) -> None:
         ttl = ttl_for(record.cacheability.value, self.s)
@@ -211,6 +214,29 @@ class RedisStore:
             f"  decision={event.decision.value!r}  tool={event.tool_name!r}"
         )
         return sid_str
+
+    def emit_span(self, run_id: str, span: dict) -> str:
+        """XADD one span to trace:{run_id}; returns the stream ID.
+
+        The span JSON lives in a single ``data`` field — the exact shape
+        ``load_from_stream`` / ``read_spans`` consume (mirrors replay_trace.py).
+        """
+        key = self.trace_key(run_id)
+        sid = self.r.xadd(key, {"data": json.dumps(span)})
+        return sid.decode() if isinstance(sid, bytes) else str(sid)
+
+    def read_spans(self, run_id: str) -> list[dict]:
+        """Batch-consume the entire span stream trace:{run_id} via XRANGE."""
+        rows = self.r.xrange(self.trace_key(run_id), min="-", max="+")
+        spans: list[dict] = []
+        for _sid, fields in rows:
+            raw = fields.get(b"data") or fields.get("data")
+            if raw is None:
+                continue
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8")
+            spans.append(json.loads(raw))
+        return spans
 
     def read_events(self, run_id: str, after: str = "0", count: int = 1000) -> list[RedundantEvent]:
         start = "-" if after in ("0", "", None) else f"({after}"

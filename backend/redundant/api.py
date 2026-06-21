@@ -233,7 +233,7 @@ def _compute_findings(run_id: str, json_path: str) -> dict:
     spans = load_spans(
         run_id=run_id or None,
         json_path=json_path or None,
-        redis_client=redis_client if run_id else None,
+        store=store if run_id else None,
     )
 
     result = analyze(spans)

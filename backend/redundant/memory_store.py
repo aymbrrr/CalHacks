@@ -36,6 +36,8 @@ class InMemoryStore:
         self._loops: dict[str, int] = defaultdict(int)
         self._calls: dict[str, tuple[str, CallRecord]] = {}  # call_id -> (scope, record)
         self._streams: dict[str, list[tuple[str, RedundantEvent]]] = defaultdict(list)
+        # Span stream mirror of RedisStore's trace:{run_id}; powers /findings offline.
+        self._traces: dict[str, list[dict]] = defaultdict(list)
         self._runs: dict[str, Run] = {}
         self._seq = 0
         # Guards all mutable state: the API runs each demo in a daemon thread, so
@@ -44,6 +46,11 @@ class InMemoryStore:
 
     def ping(self) -> bool:
         return True
+
+    # Mirror RedisStore's key helper so runtime debug logging works identically
+    # against either store (the runtime prints self.store._exact_key(...)).
+    def _exact_key(self, scope_key: str, input_hash: str) -> str:
+        return f"{self.s.namespace}:cache:exact:{scope_key}:{input_hash}"
 
     def ensure_index(self) -> None:
         return None
@@ -103,6 +110,20 @@ class InMemoryStore:
     # --- streams + runs -----------------------------------------------------
     def stream_key(self, run_id: str) -> str:
         return f"stream:redundant:events:{run_id}"
+
+    def trace_key(self, run_id: str) -> str:
+        return f"trace:{run_id}"
+
+    def emit_span(self, run_id: str, span: dict) -> str:
+        with self._lock:
+            self._seq += 1
+            sid = f"{int(time.time()*1000)}-{self._seq}"
+            self._traces[run_id].append(span)
+        return sid
+
+    def read_spans(self, run_id: str) -> list[dict]:
+        with self._lock:
+            return list(self._traces.get(run_id, []))
 
     def emit_event(self, event: RedundantEvent) -> str:
         with self._lock:

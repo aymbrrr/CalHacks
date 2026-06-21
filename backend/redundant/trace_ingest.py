@@ -11,13 +11,19 @@ from redundant.pricing import cost_for
 from redundant.span_schema import Span
 
 
+# Decisions whose calls never executed — their ~0 cost is real, not "unstamped".
+_NON_EXECUTED_DECISIONS = {"EXACT_REUSE", "SEMANTIC_REUSE", "BLOCK_OR_WARN"}
+
+
 def _stamp_cost(span: Span) -> Span:
     """Populate ``cost_usd`` if missing so every span carries a real number.
 
     Spans that already arrive with a cost (e.g. from the runtime emitter) are
     left untouched — the runtime's number wins over a token-derived estimate.
+    Non-executed calls (reuse/block) legitimately cost ~0, so don't re-derive a
+    token cost they never incurred just because cost_usd is falsy.
     """
-    if span.cost_usd:
+    if span.cost_usd or span.decision in _NON_EXECUTED_DECISIONS:
         return span
     span.cost_usd = cost_for(span.model, span.tokens.input, span.tokens.output)
     return span
@@ -29,37 +35,31 @@ def load_from_json(path: str | Path) -> list[Span]:
     return [_stamp_cost(Span.model_validate(s)) for s in data]
 
 
-def load_from_stream(run_id: str, redis_client) -> list[Span]:
-    """Batch-consume an entire Redis Stream for a run via XRANGE."""
-    entries = redis_client.xrange(f"trace:{run_id}", min="-", max="+")
-    spans: list[Span] = []
-    for _sid, fields in entries:
-        raw = fields.get(b"data") or fields.get("data")
-        if raw is None:
-            continue
-        if isinstance(raw, bytes):
-            raw = raw.decode("utf-8")
-        spans.append(_stamp_cost(Span.model_validate(json.loads(raw))))
-    return spans
-
-
 def load_spans(run_id: Optional[str] = None, json_path: Optional[str | Path] = None,
-               redis_client=None) -> list[Span]:
-    """Unified loader: prefer stream if redis_client provided, else fall back to JSON.
+               store=None) -> list[Span]:
+    """Unified loader: prefer the run's span stream, else fall back to JSON.
 
-    An empty stream (run id not present in Redis) falls through to the JSON
-    path so endpoints like /findings and /rerun still return something useful
-    when called with an unknown run id — important for demo determinism.
+    The ``store`` (RedisStore or InMemoryStore) owns the per-run span stream
+    ``trace:{run_id}`` via ``read_spans``; using it instead of a raw Redis client
+    means the offline (in-memory) path returns live spans too. An empty stream
+    (unknown run id, or a run that wrote no spans) falls through to the JSON path
+    so /findings and /rerun still return something useful — important for demo
+    determinism.
     """
-    if redis_client is not None and run_id:
+    if store is not None and run_id:
         try:
-            spans = load_from_stream(run_id, redis_client)
-            if spans:
-                return spans
+            raw = store.read_spans(run_id)
+            if raw:
+                return [_stamp_cost(Span.model_validate(s)) for s in raw]
         except Exception:
             pass
     if json_path:
         return load_from_json(json_path)
-    # Default: load the bundled demo trace.
+    # Default: load the bundled demo trace. Log it so an empty run never silently
+    # masquerades as a successful one in the dashboard.
     default = Path(__file__).parent / "demo_trace.json"
+    print(
+        f"[trace_ingest] no live spans for run_id={run_id!r}; "
+        f"serving bundled demo_trace.json fallback"
+    )
     return load_from_json(default)

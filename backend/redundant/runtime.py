@@ -77,6 +77,9 @@ class Redundant:
         # When disabled (baseline mode) the firewall always executes, so the UI
         # can contrast raw spend against the Redundant-enabled run.
         self.enabled = enabled
+        # Agent-kind root spans already emitted to trace:{run_id}, keyed by agent_id.
+        # Lets call spans nest under their agent so the UI flamegraph isn't flat.
+        self._agent_roots: dict[str, str] = {}
         try:
             self.store.ensure_index()
         except Exception:
@@ -349,10 +352,71 @@ class Redundant:
         except Exception as _exc:
             print(f"[redundant] XADD FAILED  stream={_stream_key!r}  error={_exc!r}")
             event.event_id = call_id
+
+        # Emit a Span to trace:{run_id} so /findings?run_id reflects this real run
+        # (the events stream above drives the live ticker; the span stream drives the
+        # flamegraph + findings + cost). One producer for both demo and band paths.
+        self._emit_call_span(
+            call_id=call_id, agent_id=agent_id, call_type=call_type, tool_name=tool_name,
+            normalized=normalized, input_hash=input_hash, output=output,
+            input_tokens=input_tokens, output_tokens=out_tokens, model=model,
+            cost_usd=actual_cost, latency_ms=latency_ms, decision=d,
+        )
+
         # Attach output for in-process callers (e.g. Band agents) without bloating
         # the streamed JSON.
         event._output = output
         return event
+
+    # --- span emission (trace:{run_id}) -------------------------------------
+    def _ensure_agent_root(self, agent_id: str) -> str:
+        """Emit (once per agent) a kind="agent" root span so call spans can nest."""
+        existing = self._agent_roots.get(agent_id)
+        if existing is not None:
+            return existing
+        span_id = f"agent:{self.run_id}:{agent_id}"
+        self._agent_roots[agent_id] = span_id
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        self._safe_emit_span({
+            "span_id": span_id, "parent_span_id": None, "kind": "agent",
+            "name": f"agent:{agent_id}", "tool_name": None, "agent_name": agent_id,
+            "input": "", "output": "", "input_hash": "",
+            "start_time": now_ms, "end_time": now_ms,
+            "tokens": {"input": 0, "output": 0}, "model": None,
+            "cost_usd": 0.0, "decision": None,
+        })
+        return span_id
+
+    def _emit_call_span(self, *, call_id, agent_id, call_type, tool_name, normalized,
+                        input_hash, output, input_tokens, output_tokens, model,
+                        cost_usd, latency_ms, decision) -> None:
+        parent = self._ensure_agent_root(agent_id)
+        is_tool = call_type == CallType.TOOL
+        end_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        dur = latency_ms or default_latency_ms(call_type.value)
+        self._safe_emit_span({
+            "span_id": call_id,
+            "parent_span_id": parent,
+            "kind": call_type.value,
+            "name": f"tool:{tool_name}" if is_tool else f"llm:{model or 'generate'}",
+            "tool_name": tool_name if is_tool else None,
+            "agent_name": agent_id,
+            "input": normalized,
+            "output": output or "",
+            "input_hash": input_hash,
+            "start_time": end_ms - dur,
+            "end_time": end_ms,
+            "tokens": {"input": input_tokens, "output": output_tokens},
+            "model": model,
+            "cost_usd": round(cost_usd, 6),
+            "decision": decision.value,
+        })
+
+    def _safe_emit_span(self, span: dict) -> None:
+        try:
+            self.store.emit_span(self.run_id, span)
+        except Exception as _exc:
+            print(f"[redundant] SPAN XADD FAILED  span_id={span.get('span_id')!r}  error={_exc!r}")
 
     def _call_openai(self, messages: list[dict[str, Any]], model: str) -> str:
         # Always use OpenAI; remap any claude model name to gpt-4o-mini

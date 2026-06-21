@@ -27,6 +27,11 @@ class Span(BaseModel):
     # every downstream consumer (findings, UI flamegraph, report) reconciled to
     # the same number instead of re-deriving and drifting.
     cost_usd: float = 0.0
+    # Firewall decision for this call (EXECUTE | EXACT_REUSE | SEMANTIC_REUSE |
+    # COMPRESS_AND_EXECUTE | BLOCK_OR_WARN). None for agent spans / legacy traces.
+    # Carries decision context to the UI and lets _stamp_cost leave non-executed
+    # calls at ~0 instead of re-deriving a token cost they never incurred.
+    decision: Optional[str] = None
 
 
 class Evidence(BaseModel):

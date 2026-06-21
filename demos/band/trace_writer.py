@@ -296,15 +296,11 @@ class TraceWriter:
         self._push_to_backend(path, trace)
 
     def _push_to_backend(self, path: Path, trace: dict[str, Any]) -> None:
-        # The run is already registered by RedundantRuntime.__init__ via the real
-        # backend's store.save_run().  Do NOT call /api/runs/start here — that would
-        # create a separate run with a new UUID and lose the Band run_id.
-        try:
-            from demos.band.redundant_client import ingest_trace_file
-        except ImportError:
-            return
-        result = ingest_trace_file(path)
-        if result:
-            print(f"[redundant_client] backend ingested trace: {result.get('span_count')} spans, "
-                  f"wasted ${result.get('wasted_cost_usd', 0):.2f} / ${result.get('total_cost_usd', 0):.2f}")
+        # No-op: the run's spans now flow live to trace:{run_id} from the real
+        # Redundant runtime (Redundant._finalize -> store.emit_span), which is what
+        # the dashboard reads via GET /findings?run_id=. The old
+        # GET /findings?json_path= round-trip analyzed this local file but the
+        # frontend never consumed that result, so it only double-analyzed. The JSON
+        # file is still written above for offline debugging.
+        return
 
