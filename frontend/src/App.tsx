@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getFindings, getReport, listRuns, rerun } from "./api/client";
 import { DevInspector } from "./components/DevInspector";
 import { Flamegraph } from "./components/Flamegraph";
@@ -25,6 +25,12 @@ export function App() {
   const [expandedSpan, setExpandedSpan] = useState<string | null>(null);
   const [scrubVal, setScrubVal] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Monotonic request id for findings/report fetches. A stale response (older
+  // request, newer selectedRun) will see its id mismatch the current one and
+  // get dropped instead of overwriting fresh state.
+  const fetchSeq = useRef(0);
 
   // Load the run list; non-blocking — the dashboard renders whether or not it
   // resolves (the static fallback path is the safety net for both `/api/runs`
@@ -37,18 +43,37 @@ export function App() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load findings + report whenever the selected run changes.
+  //
+  // Bug history: this effect used to setData(null) synchronously, which caused
+  // the body to unmount and reappear as a blank screen whenever selectedRun
+  // changed (most visibly: after listRuns resolves on mount). Stale data is
+  // strictly better than no data — the new payload overwrites when it arrives.
   useEffect(() => {
-    setData(null);
-    setReport(null);
+    const seq = ++fetchSeq.current;
     setError(null);
-    setReran(false);
-    setRerunData(null);
-    setScrubVal(null);
-    setExpandedSpan(null);
+    setLoading(true);
+
     getFindings(selectedRun || undefined)
-      .then(setData)
-      .catch((e) => setError(String(e)));
-    getReport(selectedRun).then(setReport);
+      .then((d) => {
+        if (seq !== fetchSeq.current) return; // stale response, drop it
+        setData(d);
+        setReran(false);
+        setRerunData(null);
+        setScrubVal(null);
+        setExpandedSpan(null);
+      })
+      .catch((e) => {
+        if (seq !== fetchSeq.current) return;
+        setError(String(e));
+      })
+      .finally(() => {
+        if (seq === fetchSeq.current) setLoading(false);
+      });
+
+    getReport(selectedRun).then((r) => {
+      if (seq !== fetchSeq.current) return;
+      setReport(r);
+    });
   }, [selectedRun]);
 
   // Reset scrub when toggling between batch and replay so the bar shows "all"
@@ -116,8 +141,8 @@ export function App() {
         onSelectRun={setSelectedRun}
         mode={mode}
         onSelectMode={setMode}
-        streamLabel={mode === "replay" ? "replay" : "trace loaded"}
-        streamGreen={mode !== "replay"}
+        streamLabel={loading ? "loading…" : mode === "replay" ? "replay" : "trace loaded"}
+        streamGreen={!loading && mode !== "replay"}
       />
 
       <HeadlineBanner
@@ -144,6 +169,22 @@ export function App() {
               }}
             >
               Failed to load: {error}
+            </div>
+          )}
+
+          {!error && !data && (
+            <div
+              style={{
+                padding: 24,
+                color: "var(--gt-dim)",
+                fontFamily: theme.mono,
+                fontSize: 12,
+                background: theme.surface,
+                border: `1px solid ${theme.border}`,
+                borderRadius: 8,
+              }}
+            >
+              {loading ? "loading findings…" : "no data — pick a run from the selector above"}
             </div>
           )}
 
@@ -179,6 +220,7 @@ export function App() {
                     selectedFinding={selectedFinding}
                     onSelectFinding={setSelectedFinding}
                   />
+                  <DevInspector runId={selectedRun} spans={data.spans} findings={data.findings} />
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -191,7 +233,6 @@ export function App() {
                   {report && <FixSuggestions fixes={report.fixes} />}
                 </div>
               </div>
-              <DevInspector runId={selectedRun} spans={data.spans} findings={data.findings} />
             </>
           )}
         </div>

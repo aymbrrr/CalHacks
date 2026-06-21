@@ -45,10 +45,17 @@ def load_from_stream(run_id: str, redis_client) -> list[Span]:
 
 def load_spans(run_id: Optional[str] = None, json_path: Optional[str | Path] = None,
                redis_client=None) -> list[Span]:
-    """Unified loader: prefer stream if redis_client provided, else fall back to JSON."""
+    """Unified loader: prefer stream if redis_client provided, else fall back to JSON.
+
+    An empty stream (run id not present in Redis) falls through to the JSON
+    path so endpoints like /findings and /rerun still return something useful
+    when called with an unknown run id — important for demo determinism.
+    """
     if redis_client is not None and run_id:
         try:
-            return load_from_stream(run_id, redis_client)
+            spans = load_from_stream(run_id, redis_client)
+            if spans:
+                return spans
         except Exception:
             pass
     if json_path:
