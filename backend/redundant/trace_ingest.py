@@ -60,13 +60,9 @@ def load_spans(
             pass
     if json_path:
         return load_from_json(json_path)
-    if not allow_default_fallback:
-        print(f"[trace_ingest] no live spans for run_id={run_id!r}; returning empty live payload")
-        return []
-    # Default: load the bundled demo trace for no-run demo routes.
-    default = Path(__file__).parent / "demo_trace.json"
-    print(
-        f"[trace_ingest] no live spans for run_id={run_id!r}; "
-        f"serving bundled demo_trace.json fallback"
-    )
-    return load_from_json(default)
+    # Demo fixture fallback removed — return empty for all cases without live spans.
+    # if not allow_default_fallback:
+    print(f"[trace_ingest] no live spans for run_id={run_id!r}; returning empty payload")
+    return []
+    # default = Path(__file__).parent / "demo_trace.json"
+    # return load_from_json(default)

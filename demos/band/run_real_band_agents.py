@@ -11,10 +11,8 @@ from typing import Callable
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-BACKEND_ROOT = PROJECT_ROOT / "backend"
-for root in (PROJECT_ROOT, BACKEND_ROOT):
-    if str(root) not in sys.path:
-        sys.path.insert(0, str(root))
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from demos.band.real_band_adapter import LocalRedundantBandAdapter, RealBandDemoState
 
@@ -56,22 +54,28 @@ def enable_band_debug_logging() -> None:
         logging.getLogger(name).setLevel(logging.DEBUG)
 
 
+def _agent_config_path() -> Path:
+    """Absolute path to agent_config.yaml at the project root."""
+    return PROJECT_ROOT / "agent_config.yaml"
+
+
 def load_config_with_aliases(
     load_agent_config: Callable[[str], tuple[str, str]],
     spec: AgentSpec,
 ) -> tuple[str, str, str]:
+    config_path = _agent_config_path()
     names = (spec.config_name, *spec.config_aliases)
     errors: list[str] = []
     for name in names:
         try:
-            agent_id, api_key = load_agent_config(name)
+            agent_id, api_key = load_agent_config(name, config_path=config_path)
             return agent_id, api_key, name
         except Exception as exc:
             errors.append(f"{name}: {exc}")
     raise RuntimeError(
         f"Could not load Band credentials for {spec.display_name}. "
-        f"Expected agent_config.yaml key '{spec.config_name}'. Tried: {', '.join(names)}. "
-        f"Errors: {' | '.join(errors)}"
+        f"Expected agent_config.yaml key '{spec.config_name}' in {config_path}. "
+        f"Tried: {', '.join(names)}. Errors: {' | '.join(errors)}"
     )
 
 
