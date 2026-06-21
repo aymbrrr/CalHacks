@@ -33,7 +33,10 @@ class RedisStore:
     def __init__(self, settings: Settings = SETTINGS, client: redis.Redis | None = None):
         self.s = settings
         self.ns = settings.namespace
-        self.r = client or redis.from_url(settings.redis_url, decode_responses=False)
+        # Pin RESP2: redis-py 8.x talking to Redis 8 may negotiate RESP3, whose
+        # FT.SEARCH reply format the search-result parser mishandles — KNN then
+        # returns zero docs even though the index matches. RESP2 parses correctly.
+        self.r = client or redis.from_url(settings.redis_url, decode_responses=False, protocol=2)
         self.index_name = f"idx:{self.ns}:calls"
 
     # --- connectivity -------------------------------------------------------
