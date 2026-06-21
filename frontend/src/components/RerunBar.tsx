@@ -1,4 +1,5 @@
 import { theme } from "../theme";
+import { formatDemoUsd } from "../api/displayMoney";
 import type { RerunResponse } from "../types";
 
 interface Props {
@@ -7,8 +8,6 @@ interface Props {
   originalCost: number;
   onRerun: () => void;
 }
-
-const fmt = (n: number) => "$" + n.toFixed(2);
 
 export function RerunBar({ reran, rerunData, originalCost, onRerun }: Props) {
   return (
@@ -55,7 +54,7 @@ export function RerunBar({ reran, rerunData, originalCost, onRerun }: Props) {
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {fmt(originalCost)}
+              {formatDemoUsd(originalCost)}
             </span>
             <span style={{ color: theme.green, fontSize: 14 }}>→</span>
             <span
@@ -67,7 +66,7 @@ export function RerunBar({ reran, rerunData, originalCost, onRerun }: Props) {
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {fmt(rerunData.cached_cost)}
+              {formatDemoUsd(rerunData.cached_cost)}
             </span>
             <span
               style={{
@@ -80,7 +79,7 @@ export function RerunBar({ reran, rerunData, originalCost, onRerun }: Props) {
                 borderRadius: 5,
               }}
             >
-              saved {fmt(rerunData.saved)}
+              saved {formatDemoUsd(rerunData.saved)}
             </span>
             <span style={{ fontSize: 12, color: "var(--gt-dim)" }}>
               {rerunData.cache_hits.length}× served from LangCache · verified read-only

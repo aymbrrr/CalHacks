@@ -7,8 +7,10 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+BACKEND_ROOT = PROJECT_ROOT / "backend"
+for root in (PROJECT_ROOT, BACKEND_ROOT):
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
 
 from demos.band.agents import AGENT_PROMPTS, AuditAgent, ReportAgent, ResearchAgent, VerifierAgent
 from demos.band.fallback_band_room import FallbackBandRoom

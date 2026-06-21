@@ -1,4 +1,5 @@
 import { hexA, theme } from "../theme";
+import { formatDemoUsd } from "../api/displayMoney";
 import { shortLabel } from "../api/modelInfo";
 import type { Finding } from "../types";
 
@@ -89,7 +90,7 @@ export function RootCausePanel({ finding, onClose }: Props) {
           borderTop: `1px solid ${theme.border}`,
         }}
       >
-        <Cell value={"$" + finding.dollar_cost.toFixed(2)} valueColor={baseC} label="attributed cost" mono large />
+        <Cell value={formatDemoUsd(finding.dollar_cost)} valueColor={baseC} label="attributed cost" mono large />
         <Cell value={finding.count + "×"} label="occurrences" mono large />
         <Cell value={evidence} label={evidenceLabel} mono />
         <Cell value={isAlert ? "Sentry" : "LangCache"} valueColor={routeC} label="routed to" mono />

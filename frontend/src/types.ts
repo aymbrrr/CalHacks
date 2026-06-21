@@ -63,6 +63,8 @@ export interface FindingsResponse {
   cache_entries_written: number;
   alerts_fired: number;
   span_count: number;
+  event_count?: number;
+  data_source?: "live" | "event_stream" | "live_pending" | "json" | "demo_fixture" | "static_fixture" | string;
 }
 
 export interface Run {

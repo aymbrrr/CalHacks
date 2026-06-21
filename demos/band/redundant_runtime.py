@@ -2,13 +2,22 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from .scripted_tools import TOOL_REGISTRY
 from .trace_writer import TraceWriter, input_hash
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = PROJECT_ROOT / "backend"
+for root in (PROJECT_ROOT, BACKEND_ROOT):
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
 
 
 # Real model name used for LLM calls; can be overridden via REDUNDANT_DEFAULT_MODEL.

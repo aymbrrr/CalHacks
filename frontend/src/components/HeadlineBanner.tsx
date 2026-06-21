@@ -1,4 +1,5 @@
 import { theme } from "../theme";
+import { formatDemoUsd } from "../api/displayMoney";
 
 interface Props {
   diagnosed: boolean;
@@ -8,8 +9,6 @@ interface Props {
   findingCount: number;
   onToggleDiagnose: () => void;
 }
-
-const fmt = (n: number) => "$" + n.toFixed(2);
 
 export function HeadlineBanner({ diagnosed, totalCost, wastedCost, wastePct, findingCount, onToggleDiagnose }: Props) {
   return (
@@ -37,7 +36,7 @@ export function HeadlineBanner({ diagnosed, totalCost, wastedCost, wastePct, fin
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {fmt(wastedCost)}
+              {formatDemoUsd(wastedCost)}
             </span>
             <span style={{ fontSize: 15, color: "var(--gt-sec)" }}>wasted of</span>
             <span
@@ -50,7 +49,7 @@ export function HeadlineBanner({ diagnosed, totalCost, wastedCost, wastePct, fin
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {fmt(totalCost)}
+              {formatDemoUsd(totalCost)}
             </span>
             <span style={{ fontSize: 15, color: "var(--gt-sec)" }}>total</span>
             <span
@@ -85,7 +84,7 @@ export function HeadlineBanner({ diagnosed, totalCost, wastedCost, wastePct, fin
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {fmt(totalCost)}
+              {formatDemoUsd(totalCost)}
             </span>
             <span style={{ fontSize: 14, color: "var(--gt-dim)" }}>total spend · run looks fine — nobody knows why</span>
           </div>

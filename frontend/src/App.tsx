@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getFindings, getReport, listRuns, rerun, startRun, streamRun } from "./api/client";
 import { DevInspector } from "./components/DevInspector";
 import { Flamegraph } from "./components/Flamegraph";
@@ -34,15 +34,60 @@ export function App() {
   // get dropped instead of overwriting fresh state.
   const fetchSeq = useRef(0);
 
-  // Load the run list; non-blocking — the dashboard renders whether or not it
-  // resolves (the static fallback path is the safety net for both `/api/runs`
-  // and `/findings`).
+  const selectedRunObj = useMemo(
+    () => runs.find((r) => r.run_id === selectedRun) ?? null,
+    [runs, selectedRun]
+  );
+
+  const refreshRuns = useCallback(async () => {
+    const rs = await listRuns();
+    setRuns(rs);
+    setSelectedRun((current) => current || rs[0]?.run_id || "");
+  }, []);
+
+  const refreshRunData = useCallback(
+    async (runId: string | undefined, { showLoading = false, resetView = false } = {}) => {
+      const seq = ++fetchSeq.current;
+      setError(null);
+      if (showLoading) setLoading(true);
+
+      getFindings(runId)
+        .then((d) => {
+          if (seq !== fetchSeq.current) return; // stale response, drop it
+          setData(d);
+          if (resetView) {
+            setReran(false);
+            setRerunData(null);
+            setScrubVal(null);
+            setExpandedSpan(null);
+          }
+        })
+        .catch((e) => {
+          if (seq !== fetchSeq.current) return;
+          setError(String(e));
+        })
+        .finally(() => {
+          if (seq === fetchSeq.current && showLoading) setLoading(false);
+        });
+
+      getReport(runId || "").then((r) => {
+        if (seq !== fetchSeq.current) return;
+        setReport(r);
+      });
+    },
+    []
+  );
+
+  // Keep externally-started Band/API runs visible. Band can write Redis without
+  // the dashboard initiating the run, so a one-shot mount fetch leaves the
+  // selector stale.
   useEffect(() => {
-    listRuns().then((rs) => {
-      setRuns(rs);
-      if (rs.length && !selectedRun) setSelectedRun(rs[0].run_id);
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    refreshRuns().catch(() => {});
+    const timer = window.setInterval(() => {
+      refreshRuns().catch(() => {});
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [refreshRuns]);
 
   // Load findings + report whenever the selected run changes.
   //
@@ -51,32 +96,40 @@ export function App() {
   // changed (most visibly: after listRuns resolves on mount). Stale data is
   // strictly better than no data — the new payload overwrites when it arrives.
   useEffect(() => {
-    const seq = ++fetchSeq.current;
-    setError(null);
-    setLoading(true);
+    refreshRunData(selectedRun || undefined, { showLoading: true, resetView: true });
+  }, [refreshRunData, selectedRun]);
 
-    getFindings(selectedRun || undefined)
-      .then((d) => {
-        if (seq !== fetchSeq.current) return; // stale response, drop it
-        setData(d);
-        setReran(false);
-        setRerunData(null);
-        setScrubVal(null);
-        setExpandedSpan(null);
-      })
-      .catch((e) => {
-        if (seq !== fetchSeq.current) return;
-        setError(String(e));
-      })
-      .finally(() => {
-        if (seq === fetchSeq.current) setLoading(false);
-      });
+  // A selected running run should keep moving even if it was started outside
+  // this tab. Polling covers missing/closed SSE connections and refreshes the
+  // findings payload as trace:{run_id} grows.
+  useEffect(() => {
+    if (!selectedRun || selectedRunObj?.status !== "running") return;
+    setRunStatus("running");
+    const timer = window.setInterval(() => {
+      refreshRunData(selectedRun, { showLoading: false, resetView: false });
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [refreshRunData, selectedRun, selectedRunObj?.status]);
 
-    getReport(selectedRun).then((r) => {
-      if (seq !== fetchSeq.current) return;
-      setReport(r);
-    });
-  }, [selectedRun]);
+  // Subscribe to whichever running run is selected, not only runs started by
+  // this tab. Events drive the live counter and nudge a findings/report refresh.
+  useEffect(() => {
+    if (!selectedRun || selectedRunObj?.status !== "running") return;
+    setLiveEventCount(0);
+    const cleanup = streamRun(
+      selectedRun,
+      () => {
+        setLiveEventCount((n) => n + 1);
+        refreshRunData(selectedRun, { showLoading: false, resetView: false });
+      },
+      (completedRun) => {
+        setRunStatus(completedRun.status);
+        setRuns((prev) => [completedRun, ...prev.filter((r) => r.run_id !== completedRun.run_id)]);
+        refreshRunData(completedRun.run_id, { showLoading: false, resetView: false });
+      }
+    );
+    return cleanup;
+  }, [refreshRunData, selectedRun, selectedRunObj?.status]);
 
   // Reset scrub when toggling between batch and replay so the bar shows "all"
   // by default whenever the user enters replay mode.
@@ -147,6 +200,20 @@ export function App() {
     return data.spans.filter((s) => s.start_time <= replayCutoffTs + 1);
   }, [data, mode, replayCutoffTs]);
 
+  const effectiveRunStatus = selectedRunObj?.status ?? runStatus;
+  const dataSourceLabel =
+    data?.data_source === "live_pending"
+      ? "waiting for spans"
+      : data?.data_source === "event_stream"
+      ? "event stream"
+      : data?.data_source === "static_fixture"
+      ? "static fixture"
+      : data?.data_source === "demo_fixture"
+      ? "demo fixture"
+      : data?.data_source === "live"
+      ? "live"
+      : null;
+
   return (
     <div
       style={{
@@ -166,15 +233,17 @@ export function App() {
         mode={mode}
         onSelectMode={setMode}
         streamLabel={
-          runStatus === "running"
+          effectiveRunStatus === "running"
             ? `live · ${liveEventCount} events`
             : loading
             ? "loading…"
+            : dataSourceLabel
+            ? dataSourceLabel
             : mode === "replay"
             ? "replay"
             : "trace loaded"
         }
-        streamGreen={runStatus === "running" || (!loading && mode !== "replay")}
+        streamGreen={effectiveRunStatus === "running" || data?.data_source === "live" || (!loading && mode !== "replay")}
       />
 
       <HeadlineBanner

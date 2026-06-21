@@ -35,16 +35,21 @@ def load_from_json(path: str | Path) -> list[Span]:
     return [_stamp_cost(Span.model_validate(s)) for s in data]
 
 
-def load_spans(run_id: Optional[str] = None, json_path: Optional[str | Path] = None,
-               store=None) -> list[Span]:
+def load_spans(
+    run_id: Optional[str] = None,
+    json_path: Optional[str | Path] = None,
+    store=None,
+    *,
+    allow_default_fallback: bool = True,
+) -> list[Span]:
     """Unified loader: prefer the run's span stream, else fall back to JSON.
 
     The ``store`` (RedisStore or InMemoryStore) owns the per-run span stream
     ``trace:{run_id}`` via ``read_spans``; using it instead of a raw Redis client
     means the offline (in-memory) path returns live spans too. An empty stream
-    (unknown run id, or a run that wrote no spans) falls through to the JSON path
-    so /findings and /rerun still return something useful — important for demo
-    determinism.
+    falls through to the JSON path only when ``allow_default_fallback`` is true.
+    Explicit live-run callers set it false so a missing ``trace:{run_id}`` is
+    visible instead of silently masquerading as bundled demo data.
     """
     if store is not None and run_id:
         try:
@@ -55,8 +60,10 @@ def load_spans(run_id: Optional[str] = None, json_path: Optional[str | Path] = N
             pass
     if json_path:
         return load_from_json(json_path)
-    # Default: load the bundled demo trace. Log it so an empty run never silently
-    # masquerades as a successful one in the dashboard.
+    if not allow_default_fallback:
+        print(f"[trace_ingest] no live spans for run_id={run_id!r}; returning empty live payload")
+        return []
+    # Default: load the bundled demo trace for no-run demo routes.
     default = Path(__file__).parent / "demo_trace.json"
     print(
         f"[trace_ingest] no live spans for run_id={run_id!r}; "

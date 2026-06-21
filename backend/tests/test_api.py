@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from redundant import api
 from redundant.memory_store import InMemoryStore
+from redundant.schema import RedundantEvent, Run
 
 
 @pytest.fixture
@@ -107,6 +108,85 @@ def test_findings_reflect_the_real_run(client):
     assert reuse
     assert all(s["cost_usd"] == 0 for s in reuse)
     assert findings["total_cost_usd"] > 0
+
+
+def test_findings_for_live_run_without_spans_does_not_fallback(client):
+    """An explicit live run_id with no trace stream should be visible as pending,
+    not replaced by bundled demo_trace.json."""
+    store = api.get_store()
+    store.save_run(
+        Run(
+            run_id="run-no-spans",
+            task="waiting on band",
+            mode="band",
+            status="running",
+            started_at="2026-06-21T00:00:00+00:00",
+        )
+    )
+
+    findings = client.get("/findings", params={"run_id": "run-no-spans"}).json()
+    assert findings["data_source"] == "live_pending"
+    assert findings["spans"] == []
+    assert findings["findings"] == []
+    assert findings["span_count"] == 0
+    assert findings["total_cost_usd"] == 0
+
+
+def test_findings_bridges_event_only_live_run(client):
+    """Older/external Band paths may have event streams before span streams.
+    The dashboard should still render live activity from those events."""
+    store = api.get_store()
+    store.save_run(
+        Run(
+            run_id="run-events-only",
+            task="band events",
+            mode="band",
+            status="running",
+            started_at="2026-06-21T00:00:00+00:00",
+        )
+    )
+    store.emit_event(
+        RedundantEvent(
+            event_id="pending",
+            run_id="run-events-only",
+            ts="2026-06-21T00:00:01+00:00",
+            agent_id="ResearchAgent",
+            call_id="call-1",
+            call_type="tool",
+            tool_name="search_docs",
+            decision="EXECUTE",
+            cacheability="pure",
+            summary="ResearchAgent executed search_docs.",
+            explanation="No safe duplicate found.",
+            actual_cost_usd=0.01,
+            cluster_id="cl:shared",
+        )
+    )
+    store.emit_event(
+        RedundantEvent(
+            event_id="pending",
+            run_id="run-events-only",
+            ts="2026-06-21T00:00:02+00:00",
+            agent_id="ReportAgent",
+            call_id="call-2",
+            call_type="tool",
+            tool_name="search_docs",
+            decision="EXACT_REUSE",
+            cacheability="pure",
+            summary="ReportAgent reused a prior search_docs result.",
+            explanation="Exact normalized call already executed.",
+            saved_cost_usd=0.01,
+            source_call_id="call-1",
+            cluster_id="cl:shared",
+        )
+    )
+
+    findings = client.get("/findings", params={"run_id": "run-events-only"}).json()
+    assert findings["data_source"] == "event_stream"
+    assert findings["event_count"] == 2
+    assert findings["span_count"] == 4
+    assert {s["agent_name"] for s in findings["spans"]} == {"ResearchAgent", "ReportAgent"}
+    assert findings["findings"]
 
 
 def test_unknown_run_report_404(client):

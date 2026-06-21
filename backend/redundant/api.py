@@ -28,6 +28,7 @@ from redundant.config import SETTINGS
 from redundant.demo import run_demo_task
 from redundant.report import build_report
 from redundant.schema import Run
+from redundant.span_schema import Span
 from redundant.trace_ingest import load_spans
 from redundant.detection import analyze
 from redundant.lang_cache import LangCache
@@ -230,11 +231,34 @@ def _compute_findings(run_id: str, json_path: str) -> dict:
     store = get_store()
     redis_client = getattr(store, "r", None)
 
+    explicit_live_run = bool(run_id and not json_path)
     spans = load_spans(
         run_id=run_id or None,
         json_path=json_path or None,
         store=store if run_id else None,
+        allow_default_fallback=not explicit_live_run,
     )
+    events = []
+    if run_id:
+        try:
+            events = store.read_events(run_id)
+        except Exception:
+            events = []
+    synthesized_from_events = explicit_live_run and not spans and bool(events)
+    if synthesized_from_events:
+        spans = _spans_from_events(events)
+    data_source = (
+        "event_stream"
+        if synthesized_from_events
+        else "live"
+        if explicit_live_run and spans
+        else "live_pending"
+        if explicit_live_run
+        else "json"
+        if json_path
+        else "demo_fixture"
+    )
+    event_count = len(events)
 
     result = analyze(spans)
     route_findings(result["findings"])
@@ -274,7 +298,67 @@ def _compute_findings(run_id: str, json_path: str) -> dict:
         "cache_entries_written": cache_written,
         "alerts_fired": alerts_fired,
         "span_count": len(spans),
+        "event_count": event_count,
+        "data_source": data_source,
     }
+
+
+def _spans_from_events(events) -> list[Span]:
+    """Best-effort bridge for event-only live runs.
+
+    The normal live path writes both stream:redundant:events:{run_id} and
+    trace:{run_id}. Older Band processes may have written only decision events;
+    synthesize enough span shape for the dashboard to show current activity
+    instead of falling back to a fixture.
+    """
+    spans: list[Span] = []
+    agent_roots: dict[str, str] = {}
+
+    for ev in events:
+        agent_id = ev.agent_id or "agent"
+        root_id = agent_roots.get(agent_id)
+        try:
+            ts_ms = int(datetime.fromisoformat(ev.ts).timestamp() * 1000)
+        except Exception:
+            ts_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        if root_id is None:
+            root_id = f"agent:{ev.run_id}:{agent_id}"
+            agent_roots[agent_id] = root_id
+            spans.append(
+                Span(
+                    span_id=root_id,
+                    parent_span_id=None,
+                    kind="agent",
+                    name=f"agent:{agent_id}",
+                    agent_name=agent_id,
+                    start_time=ts_ms,
+                    end_time=ts_ms,
+                    tokens={"input": 0, "output": 0},
+                    cost_usd=0.0,
+                )
+            )
+        duration = 35 if ev.decision.value in {"EXACT_REUSE", "SEMANTIC_REUSE", "BLOCK_OR_WARN"} else 1500
+        spans.append(
+            Span(
+                span_id=ev.call_id,
+                parent_span_id=root_id,
+                kind=ev.call_type.value,
+                name=f"tool:{ev.tool_name}" if ev.call_type.value == "tool" else "llm:generate",
+                tool_name=ev.tool_name if ev.call_type.value == "tool" else None,
+                agent_name=agent_id,
+                input=ev.explanation or ev.summary,
+                output=ev.summary,
+                input_hash=ev.cluster_id or ev.call_id,
+                start_time=max(0, ts_ms - duration),
+                end_time=ts_ms,
+                tokens={"input": 0, "output": ev.saved_tokens or 0},
+                model=None,
+                cost_usd=ev.actual_cost_usd,
+                decision=ev.decision.value,
+            )
+        )
+
+    return spans
 
 
 @app.get("/findings")

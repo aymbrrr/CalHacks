@@ -4,7 +4,15 @@
  *  backend is unreachable or when the page is loaded with `?source=static`.
  *  This is the demo-safety path required by `docs/UI_REQUIREMENTS.md` UR-13.
  */
-import type { AlertsResponse, FindingsResponse, RerunResponse, Run, RunReport, SuggestedFix } from "../types";
+import type {
+  AlertsResponse,
+  FindingsResponse,
+  RedundantEvent,
+  RerunResponse,
+  Run,
+  RunReport,
+  SuggestedFix,
+} from "../types";
 
 const FALLBACK_FIXES: SuggestedFix[] = [
   {
@@ -53,13 +61,17 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 /** GET /findings, with static fixture fallback. */
 export async function getFindings(runId?: string): Promise<FindingsResponse> {
-  if (forceStatic()) return fetchJson<FindingsResponse>("/fixtures/findings.json");
+  if (forceStatic()) {
+    const fixture = await fetchJson<FindingsResponse>("/fixtures/findings.json");
+    return { ...fixture, data_source: "static_fixture" };
+  }
   try {
     const qs = runId ? `?run_id=${encodeURIComponent(runId)}` : "";
     return await fetchJson<FindingsResponse>(`/findings${qs}`);
   } catch {
     // Backend down — fall through to the demo-safe fixture.
-    return fetchJson<FindingsResponse>("/fixtures/findings.json");
+    const fixture = await fetchJson<FindingsResponse>("/fixtures/findings.json");
+    return { ...fixture, data_source: "static_fixture" };
   }
 }
 

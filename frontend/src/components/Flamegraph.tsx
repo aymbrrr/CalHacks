@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { hexA, theme } from "../theme";
+import { formatDemoUsd } from "../api/displayMoney";
 import { shortLabel } from "../api/modelInfo";
 import type { Finding, Span } from "../types";
 
@@ -164,7 +165,7 @@ export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding,
         {bars.map((b) => {
           const tip = `${b.span.name}  ·  ${b.span.agent_name}\n${shortLabel(b.span.model)} · ${b.span.tokens.input + b.span.tokens.output} tok · ${(
             (b.span.end_time - b.span.start_time) / 1000
-          ).toFixed(2)}s · $${b.span.cost_usd.toFixed(3)}\nin: ${b.span.input}`;
+          ).toFixed(2)}s · ${formatDemoUsd(b.span.cost_usd)}\nin: ${b.span.input}`;
           const finding = findingBySpan.get(b.span.span_id);
           const wideEnough = b.width > 7;
           return (

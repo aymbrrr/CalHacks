@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { hexA, theme } from "../theme";
+import { formatDemoUsd } from "../api/displayMoney";
 import { shortLabel } from "../api/modelInfo";
 import type { Finding, Span } from "../types";
 
@@ -184,7 +185,7 @@ export function SpanTimeline({
                     flex: "0 0 auto",
                   }}
                 >
-                  ${sp.cost_usd.toFixed(3)}
+                  {formatDemoUsd(sp.cost_usd)}
                 </span>
               </div>
 
@@ -195,7 +196,7 @@ export function SpanTimeline({
                       ["model", shortLabel(sp.model)],
                       ["tok", `${sp.tokens.input}→${sp.tokens.output}`],
                       ["dur", `${((sp.end_time - sp.start_time) / 1000).toFixed(2)}s`],
-                      ["cost", `$${sp.cost_usd.toFixed(3)}`],
+                      ["cost", formatDemoUsd(sp.cost_usd)],
                       ["hash", hash],
                     ].map(([label, val]) => (
                       <span

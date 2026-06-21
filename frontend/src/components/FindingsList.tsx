@@ -1,4 +1,5 @@
 import { hexA, theme } from "../theme";
+import { formatDemoUsd } from "../api/displayMoney";
 import type { Finding } from "../types";
 
 interface Props {
@@ -111,7 +112,7 @@ function Card({ finding, selected, onClick }: { finding: Finding; selected: bool
         <span style={{ fontFamily: theme.mono, fontSize: 12.5, color: theme.text, fontWeight: 500 }}>{title}</span>
         <span style={{ flex: 1 }} />
         <span style={{ fontFamily: theme.mono, fontSize: 13, color: theme.red, fontVariantNumeric: "tabular-nums" }}>
-          ${finding.dollar_cost.toFixed(2)}
+          {formatDemoUsd(finding.dollar_cost)}
         </span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
