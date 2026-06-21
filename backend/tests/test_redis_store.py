@@ -24,6 +24,24 @@ def store():
         pytest.skip(f"Redis unavailable: {exc}")
 
 
+def _vector_knn_supported(store) -> bool:
+    """Smoke-test KNN on a throwaway doc. Not every Redis (Cloud plan / version)
+    actually serves RediSearch vector search; on those it returns no rows for a
+    perfectly-formed doc, so the vector-specific test should skip, not fail."""
+    probe_id = f"probe-{uuid.uuid4().hex}"
+    scope = f"run:probe-{uuid.uuid4().hex[:6]}"
+    rec = _record(scope.split(":", 1)[1], "knn capability probe", call_id=probe_id)
+    store.index_call(scope, rec)
+    time.sleep(0.3)
+    try:
+        return bool(store.knn_search(scope, embed_list("knn capability probe"), k=1))
+    finally:
+        try:
+            store.r.delete(store._call_key(probe_id))
+        except Exception:
+            pass
+
+
 def _record(run_id, text, cacheability=Cacheability.PURE, call_id=None):
     norm = f'{{"q":"{text}"}}'
     return CallRecord(
@@ -53,6 +71,8 @@ def test_side_effecting_not_stored(store):
 
 
 def test_knn_finds_indexed_call(store):
+    if not _vector_knn_supported(store):
+        pytest.skip("RediSearch vector KNN unavailable on this Redis instance")
     run = f"it-{uuid.uuid4().hex[:6]}"
     scope = f"run:{run}"
     rec = _record(run, "redis vector search")

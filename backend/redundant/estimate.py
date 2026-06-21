@@ -10,10 +10,10 @@ from __future__ import annotations
 from typing import Any
 
 from redundant.config import (
-    MODEL_PRICING,
     DEFAULT_LLM_LATENCY_MS,
     DEFAULT_TOOL_LATENCY_MS,
 )
+from redundant.pricing import cost_for
 
 
 def count_tokens(text: str) -> int:
@@ -36,16 +36,13 @@ def count_message_tokens(messages: list[dict[str, Any]]) -> int:
 
 
 def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
-    """USD cost for a call given token counts and the model pricing table."""
-    price = MODEL_PRICING.get(model)
-    if price is None:
-        # Unknown model: assume mid-tier so the demo still shows a number.
-        price = MODEL_PRICING["gpt-4o"]
-    return round(
-        input_tokens / 1_000_000 * price.input_per_mtok
-        + output_tokens / 1_000_000 * price.output_per_mtok,
-        6,
-    )
+    """USD cost for a call given token counts.
+
+    Delegates to the single pricing source (``pricing.cost_for``) so the runtime,
+    detection, and trace-ingest paths never disagree on a model's price — including
+    its prefix-matching and mid-tier fallback for unknown model names.
+    """
+    return cost_for(model, input_tokens, output_tokens)
 
 
 def default_latency_ms(call_type: str) -> int:

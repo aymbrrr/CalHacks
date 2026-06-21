@@ -44,11 +44,18 @@ def _local_fallback_embedding(text: str, dim: int) -> list[float]:
 
 @lru_cache(maxsize=2048)
 def embed(text: str, settings: Settings = SETTINGS) -> tuple[float, ...]:
-    if not settings.openai_api_key:
+    # Offline by request or when no key is configured: deterministic local vector.
+    if settings.embeddings_offline or not settings.openai_api_key:
         return tuple(_local_fallback_embedding(text, settings.embedding_dim))
-    client = _get_client(settings)
-    resp = client.embeddings.create(model=settings.embedding_model, input=text)
-    return tuple(resp.data[0].embedding)
+    try:
+        client = _get_client(settings)
+        resp = client.embeddings.create(model=settings.embedding_model, input=text)
+        return tuple(resp.data[0].embedding)
+    except Exception:
+        # An embedding outage (bad key, no network, rate limit) must never crash
+        # the firewall or block the demo. Degrade to the deterministic local
+        # vector (same dim) so the vector path keeps working.
+        return tuple(_local_fallback_embedding(text, settings.embedding_dim))
 
 
 def embed_list(text: str, settings: Settings = SETTINGS) -> list[float]:

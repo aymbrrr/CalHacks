@@ -36,4 +36,12 @@ yarn-error.log*
 
 # --- Editor ---
 .idea/
+.vscode/
 *.swp
+
+# --- Coverage ---
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+coverage/

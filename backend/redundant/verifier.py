@@ -22,6 +22,13 @@ class Candidate:
     similarity: float  # cosine similarity in [0, 1]
     output: str | None = None
     normalized_input: str = ""
+    # Measured metrics of the source call (carried from the index) so reuse/block
+    # savings can be credited from real numbers instead of a re-estimate. 0 if the
+    # store did not return them.
+    cost_usd: float = 0.0
+    latency_ms: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
 
 
 @dataclass

@@ -29,21 +29,31 @@ const GAP = 5;
 
 export function Flamegraph({ spans, findings, diagnosed, reran, selectedFinding, onSelectFinding }: Props) {
   // Compute every span's depth from parent_span_id.
+  //
+  // The bundled demo trace contains an intentional cycle (s_07 ↔ s_08 ↔ s_09)
+  // — that's literally the cycle the backend's detector reports as a finding.
+  // The walker MUST tolerate cycles in the parent chain or React stack-
+  // overflows mid-render. We break the cycle by tracking in-progress ids and
+  // treating any back-edge as depth 0 (treating the cycle member as a root).
   const { depthBySpan, depthCount, totalMs } = useMemo(() => {
     const parents = new Map<string, string | null>();
     for (const s of spans) parents.set(s.span_id, s.parent_span_id);
     const memo = new Map<string, number>();
-    const depth = (id: string): number => {
-      if (memo.has(id)) return memo.get(id)!;
+    const depth = (id: string, inFlight: Set<string>): number => {
+      const cached = memo.get(id);
+      if (cached !== undefined) return cached;
+      if (inFlight.has(id)) return 0; // cycle — stop walking
+      inFlight.add(id);
       const p = parents.get(id) ?? null;
-      const d = p && parents.has(p) ? depth(p) + 1 : 0;
+      const d = p && parents.has(p) ? depth(p, inFlight) + 1 : 0;
+      inFlight.delete(id);
       memo.set(id, d);
       return d;
     };
     const map = new Map<string, number>();
     let maxDepth = 0;
     for (const s of spans) {
-      const d = depth(s.span_id);
+      const d = depth(s.span_id, new Set());
       map.set(s.span_id, d);
       if (d > maxDepth) maxDepth = d;
     }

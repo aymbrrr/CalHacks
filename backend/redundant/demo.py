@@ -42,7 +42,11 @@ def _fake_openai(settings: Settings):
     class _Client:
         chat = _Chat()
 
-    return _Client() if not settings.openai_api_key else None
+    # Use the deterministic offline LLM when there's no key OR offline mode is
+    # forced (hermetic tests / zero-cost demos). Only a real run with a key and
+    # offline disabled talks to OpenAI.
+    offline = settings.embeddings_offline or not settings.openai_api_key
+    return _Client() if offline else None
 
 
 def run_demo_task(run_id: str, mode: str, store, settings: Settings = SETTINGS) -> None:

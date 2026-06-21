@@ -73,6 +73,14 @@ class Settings:
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = 1536
 
+    # Force the deterministic local-fallback embedding even when an API key is
+    # present. Set REDUNDANT_EMBEDDINGS_OFFLINE=1 for hermetic tests / zero-cost
+    # offline demos (the suite sets this so it never makes real OpenAI calls).
+    embeddings_offline: bool = field(
+        default_factory=lambda: os.getenv("REDUNDANT_EMBEDDINGS_OFFLINE", "").strip().lower()
+        in ("1", "true", "yes")
+    )
+
     # Cosine similarity (1 - distance) at/above which a semantic candidate is a
     # reuse candidate (still subject to the verifier).
     sim_threshold: float = field(

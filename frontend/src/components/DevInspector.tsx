@@ -55,7 +55,6 @@ export function DevInspector({ runId, spans, findings }: Props) {
         border: `1px solid ${theme.border}`,
         borderRadius: 8,
         overflow: "hidden",
-        marginTop: 16,
       }}
     >
       <div
