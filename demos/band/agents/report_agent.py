@@ -84,7 +84,7 @@ class ReportAgent:
                 "metadata": {"parent_span_id": span_id},
             }
         )
-        if unsafe.decision == "UNSAFE_SEMANTIC_BLOCK":
+        if unsafe.decision == "BLOCK_OR_WARN":
             room.post(
                 self.agent_id,
                 "Verifier blocked unsafe semantic reuse; executing the Sentry-specific search instead.",

@@ -32,9 +32,22 @@ def default_trace_path(mode: str) -> Path:
     return Path(__file__).resolve().parent / "traces" / filename
 
 
-def run_demo(*, mode: str, run_id: str, trace_out: Path, echo_room: bool) -> dict:
+def run_band_demo(run_id: str, mode: str = "redundant", store=None) -> None:
+    """Callable entry point for the backend API thread.
+
+    `store` is the backend's RedisStore or InMemoryStore instance. Passing it
+    through ensures _RealRedundant emits events to the same store the API's SSE
+    endpoint reads from. With Redis, omitting store also works (both objects hit
+    the same Redis stream). Without Redis, store must be provided for live events
+    to reach the API.
+    """
+    trace_out = default_trace_path(mode)
+    run_demo(mode=mode, run_id=run_id, trace_out=trace_out, echo_room=False, store=store)
+
+
+def run_demo(*, mode: str, run_id: str, trace_out: Path, echo_room: bool, store=None) -> dict:
     writer = TraceWriter(run_id=run_id, mode=mode, task=TASK)
-    runtime = RedundantRuntime(run_id=run_id, mode=mode, writer=writer)
+    runtime = RedundantRuntime(run_id=run_id, mode=mode, writer=writer, store=store)
     room = FallbackBandRoom(writer, echo=echo_room)
 
     print(f"Starting Band fallback room {room.room_id} in {mode} mode.")

@@ -39,6 +39,11 @@ def compare_tools(tool_a: str = "", tool_b: str = "", **_: Any) -> str:
     return f"Comparison {tool_a} vs {tool_b}:\n{_stable_blurb('cmp:' + tool_a + tool_b)}"
 
 
+def verify_source(source_or_claim: str = "", attempt: int = 1, **_: Any) -> str:
+    # STATE_BOUND: every call must execute so the loop counter can increment.
+    return f"attempt {attempt}: verifier cannot converge on {source_or_claim[:40]!r}."
+
+
 @dataclass
 class SideEffectLog:
     sends: list[dict] = field(default_factory=list)
@@ -65,6 +70,7 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
     "scan_repo": ToolSpec(scan_repo, Cacheability.PURE),
     "compare_tools": ToolSpec(compare_tools, Cacheability.PURE),
     "send_email": ToolSpec(send_email, Cacheability.SIDE_EFFECTING),
+    "verify_source": ToolSpec(verify_source, Cacheability.STATE_BOUND),
 }
 
 

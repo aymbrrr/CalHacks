@@ -130,6 +130,47 @@ export async function getAlerts(): Promise<AlertsResponse> {
   }
 }
 
+/** POST /api/runs/start → Run. Kicks off a new run on the backend. */
+export async function startRun(task: string, mode = "band"): Promise<Run> {
+  const res = await fetch("/api/runs/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ task, mode }),
+  });
+  if (!res.ok) throw new Error(`startRun → ${res.status}`);
+  return res.json() as Promise<Run>;
+}
+
+/**
+ * Subscribe to GET /api/runs/{run_id}/stream (SSE).
+ * Calls onEvent for each RedundantEvent, onDone when the run completes.
+ * Returns a cleanup function that closes the EventSource.
+ */
+export function streamRun(
+  runId: string,
+  onEvent: (ev: RedundantEvent) => void,
+  onDone: (run: Run) => void
+): () => void {
+  const es = new EventSource(`/api/runs/${encodeURIComponent(runId)}/stream`);
+  es.addEventListener("redundant", (e) => {
+    try {
+      onEvent(JSON.parse((e as MessageEvent).data) as RedundantEvent);
+    } catch {
+      /* skip malformed event */
+    }
+  });
+  es.addEventListener("done", (e) => {
+    try {
+      onDone(JSON.parse((e as MessageEvent).data) as Run);
+    } catch {
+      /* skip */
+    }
+    es.close();
+  });
+  es.onerror = () => es.close();
+  return () => es.close();
+}
+
 function projectRerun(runId: string, data: FindingsResponse): RerunResponse {
   const cacheHits: RerunResponse["cache_hits"] = [];
   let saved = 0;
