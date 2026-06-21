@@ -232,8 +232,17 @@ class RedundantRuntime:
 
         # Route through real backend — normalize→exact→embed+KNN→decide→execute→persist→emit.
         if self._real is not None:
+            print(
+                f"[redundant_runtime] ROUTE→REAL_BACKEND  agent={agent_name!r}"
+                f"  tool={tool_name!r}  cacheability={cacheability!r}"
+                f"  normalized={input_value[:120]!r}  run_id={self.run_id!r}"
+            )
             try:
                 event = self._real.tool(agent_name, tool_name, args, cacheability=cacheability)
+                print(
+                    f"[redundant_runtime] REAL_BACKEND_RESULT  tool={tool_name!r}"
+                    f"  decision={event.decision.value!r}  source_call_id={event.source_call_id!r}"
+                )
                 return self._record_backend_tool_event(
                     event=event,
                     agent_name=agent_name,
@@ -248,6 +257,10 @@ class RedundantRuntime:
                 print(f"[redundant_runtime] Real runtime tool error ({tool_name}): {exc!r}, falling back to shim")
 
         # Shim path (no real backend).
+        print(
+            f"[redundant_runtime] ROUTE→SHIM  agent={agent_name!r}"
+            f"  tool={tool_name!r}  reason={'real backend unavailable' if self._real is None else 'error fallback'}"
+        )
         return self._shim_tool(
             agent_name=agent_name,
             tool_name=tool_name,
