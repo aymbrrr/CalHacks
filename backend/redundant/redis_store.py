@@ -53,6 +53,9 @@ class RedisStore:
     def _run_key(self, run_id: str) -> str:
         return f"{self.ns}:run:{run_id}"
 
+    def _index_meta_key(self) -> str:
+        return f"{self.ns}:index:meta"
+
     def stream_key(self, run_id: str) -> str:
         return f"stream:redundant:events:{run_id}"
 
@@ -79,15 +82,39 @@ class RedisStore:
 
     # --- Step 5: vector index ----------------------------------------------
     def ensure_index(self) -> None:
-        """Create the RediSearch vector index if it does not exist."""
+        """Create the RediSearch vector index, reconciling a stale one.
+
+        The vector field's DIM (and the key prefix/namespace) are baked into the
+        index at creation. If any of those drift — e.g. ``embedding_dim`` changes,
+        or an old index was created by a previous schema — an existing index is
+        silently wrong and KNN returns nothing. We stamp a small meta key with the
+        schema signature and drop+recreate when it no longer matches, so changing
+        the embedding model never leaves a quietly broken index behind.
+        """
         from redis.commands.search.field import TagField, VectorField, TextField
         from redis.commands.search.index_definition import IndexDefinition, IndexType
 
+        prefix = f"{self.ns}:call:"
+        signature = f"{self.s.embedding_dim}:COSINE:{prefix}"
+        meta_key = self._index_meta_key()
+
         try:
             self.r.ft(self.index_name).info()
-            return  # already exists
+            exists = True
         except redis.ResponseError:
-            pass
+            exists = False
+
+        if exists:
+            have = self.r.get(meta_key)
+            have = have.decode() if isinstance(have, bytes) else have
+            if have == signature:
+                return  # already present and matches the current schema
+            # Drift (or an unstamped legacy index): drop and recreate. Keep the
+            # underlying documents — matching-dim docs get reindexed automatically.
+            try:
+                self.r.ft(self.index_name).dropindex(delete_documents=False)
+            except Exception:
+                pass
 
         schema = (
             TagField("run_id"),
@@ -105,8 +132,9 @@ class RedisStore:
                 },
             ),
         )
-        definition = IndexDefinition(prefix=[f"{self.ns}:call:"], index_type=IndexType.HASH)
+        definition = IndexDefinition(prefix=[prefix], index_type=IndexType.HASH)
         self.r.ft(self.index_name).create_index(schema, definition=definition)
+        self.r.set(meta_key, signature)
 
     def index_call(self, scope_key: str, record: CallRecord) -> None:
         if not record.embedding:
@@ -142,7 +170,8 @@ class RedisStore:
         q = (
             Query(f"(@scope_key:{{{_escape_tag(scope_key)}}})=>[KNN {k} @embedding $vec AS dist]")
             .sort_by("dist")
-            .return_fields("call_id", "cacheability", "output", "normalized_input", "dist")
+            .return_fields("call_id", "cacheability", "output", "normalized_input",
+                           "cost_usd", "latency_ms", "input_tokens", "output_tokens", "dist")
             .dialect(2)
         )
         res = self.r.ft(self.index_name).search(q, query_params={"vec": _f32_bytes(embedding)})
@@ -156,6 +185,10 @@ class RedisStore:
                     similarity=max(0.0, 1.0 - dist),  # cosine distance -> similarity
                     output=_dec(getattr(doc, "output", "")),
                     normalized_input=_dec(getattr(doc, "normalized_input", "")),
+                    cost_usd=_to_float(getattr(doc, "cost_usd", 0.0)),
+                    latency_ms=_to_int(getattr(doc, "latency_ms", 0)),
+                    input_tokens=_to_int(getattr(doc, "input_tokens", 0)),
+                    output_tokens=_to_int(getattr(doc, "output_tokens", 0)),
                 )
             )
         return out
@@ -220,3 +253,17 @@ def _dec(v: Any) -> str:
     if isinstance(v, bytes):
         return v.decode("utf-8", errors="replace")
     return "" if v is None else str(v)
+
+
+def _to_float(v: Any) -> float:
+    try:
+        return float(_dec(v))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _to_int(v: Any) -> int:
+    try:
+        return int(float(_dec(v)))
+    except (TypeError, ValueError):
+        return 0

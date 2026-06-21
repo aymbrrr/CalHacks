@@ -89,23 +89,35 @@ def build_report(run_id: str, events: list[RedundantEvent]) -> RunReport:
 
 
 def _clusters(events: list[RedundantEvent]) -> list[DuplicateCluster]:
+    by_id = {e.call_id: e for e in events}
+
+    def root(e: RedundantEvent) -> str:
+        # Reuse/block events point at the source call they collapsed into; group
+        # them with that source. This unites exact AND semantic duplicates: a
+        # paraphrase has a different input hash (so the old hash-based cluster_id
+        # missed it) but the same source call.
+        if e.decision in NON_EXECUTED_DECISIONS and e.source_call_id:
+            return e.source_call_id
+        return e.call_id
+
     groups: dict[str, list[RedundantEvent]] = defaultdict(list)
     for e in events:
-        if e.cluster_id:
-            groups[e.cluster_id].append(e)
+        groups[root(e)].append(e)
+
     clusters: list[DuplicateCluster] = []
-    for cid, evs in groups.items():
+    for rid, evs in groups.items():
         if len(evs) < 2:
             continue  # not a duplicate cluster
         saved_cost = round(sum(e.saved_cost_usd for e in evs), 6)
         saved_latency = sum(e.saved_latency_ms for e in evs)
         agent_ids = sorted({e.agent_id for e in evs})
-        label = evs[0].tool_name
+        # Prefer the executed source's tool name for the label.
+        label = (by_id.get(rid) or evs[0]).tool_name
         calls = len(evs)
         waste = round((calls - 1) / calls * 100, 1) if calls else 0.0
         clusters.append(
             DuplicateCluster(
-                cluster_id=cid,
+                cluster_id=f"cl:{rid[:12]}",
                 label=label,
                 calls=calls,
                 unique_needed=1,

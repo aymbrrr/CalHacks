@@ -94,7 +94,9 @@ class InMemoryStore:
         scored.sort(key=lambda t: t[0], reverse=True)
         return [
             Candidate(call_id=rec.call_id, cacheability=rec.cacheability.value,
-                      similarity=sim, output=rec.output, normalized_input=rec.normalized_input)
+                      similarity=sim, output=rec.output, normalized_input=rec.normalized_input,
+                      cost_usd=rec.cost_usd, latency_ms=rec.latency_ms,
+                      input_tokens=rec.input_tokens, output_tokens=rec.output_tokens)
             for sim, rec in scored[:k]
         ]
 

@@ -162,28 +162,38 @@ class Redundant:
                 candidates=[], execute=execute, compress_messages=compress_messages,
             )
 
-        embedding = embed_list(normalized, self.s)
-
-        # Lookups.
+        # Exact cache + loop counter first: both are cheap, deterministic lookups.
+        # The embedding is a paid, possibly network OpenAI call and is only needed
+        # for the semantic path, so defer it and skip it entirely when an exact hit
+        # or a loop-block already determines the outcome.
         exact = self.store.get_exact(scope, input_hash)
         loop_count = self.store.incr_loop(self.run_id, input_hash)
-
-        candidates = []
-        try:
-            raw = self.store.knn_search(scope, embedding, k=5)
-        except Exception:
-            raw = []
         exact_id = exact.call_id if exact else None
         is_side_effecting = cacheability == Cacheability.SIDE_EFFECTING.value
-        for c in raw:
-            if c.call_id == exact_id:
-                continue
-            cand_is_side = c.cacheability == Cacheability.SIDE_EFFECTING.value
-            # A non-side-effecting call must never reuse a side-effect's output;
-            # a side-effecting call only matches other side-effects (for warnings).
-            if is_side_effecting != cand_is_side:
-                continue
-            candidates.append(c)
+        loop_tripped = loop_count >= self.s.loop_threshold
+
+        # Side-effecting calls always need the vector search (their duplicates are
+        # detected semantically, never via the exact cache). Otherwise we only embed
+        # when neither an exact hit nor a loop-block short-circuits the decision.
+        need_semantic = is_side_effecting or (not loop_tripped and not exact_id)
+
+        embedding: Optional[list[float]] = None
+        candidates = []
+        if need_semantic:
+            embedding = embed_list(normalized, self.s)
+            try:
+                raw = self.store.knn_search(scope, embedding, k=5)
+            except Exception:
+                raw = []
+            for c in raw:
+                if c.call_id == exact_id:
+                    continue
+                cand_is_side = c.cacheability == Cacheability.SIDE_EFFECTING.value
+                # A non-side-effecting call must never reuse a side-effect's output;
+                # a side-effecting call only matches other side-effects (for warnings).
+                if is_side_effecting != cand_is_side:
+                    continue
+                candidates.append(c)
 
         decision = decide(
             DecisionInput(
@@ -233,23 +243,22 @@ class Redundant:
         # Source record (for reuse savings + returned output).
         source: Optional[CallRecord] = exact
         if d in (Decision.EXACT_REUSE, Decision.SEMANTIC_REUSE):
-            # Reuse: no execution. Savings == avoided executed cost.
+            # Reuse: no execution. Savings == the source call's *measured* cost.
             if source is not None:
                 output = source.output
-                saved = savings_from_reuse(source.cost_usd, source.latency_ms,
-                                           source.input_tokens + source.output_tokens)
             else:
-                # Semantic reuse: output carried on the matched Candidate.
-                match = next((c for c in candidates if c.call_id == decision.source_call_id), None)
-                output = match.output if match else "[reused semantic result]"
-                est_cost = estimate_cost(model or self.s.default_model, input_tokens, input_tokens // 2)
-                saved = savings_from_reuse(est_cost, default_latency_ms(call_type.value),
-                                           input_tokens + input_tokens // 2)
+                # Semantic reuse: output + metrics carried on the matched Candidate.
+                source = next((c for c in candidates if c.call_id == decision.source_call_id), None)
+                output = source.output if source else "[reused semantic result]"
+            saved = _reuse_savings_from_source(source, call_type)
         elif d == Decision.BLOCK_OR_WARN:
-            # Blocked: nothing executed. Credit the avoided cost as saved.
-            est_cost = estimate_cost(model or self.s.default_model, input_tokens, input_tokens // 2)
-            saved = savings_from_reuse(est_cost, default_latency_ms(call_type.value),
-                                       input_tokens + input_tokens // 2)
+            # Blocked: nothing executed. Credit the avoided work using the real
+            # metrics of the call we are not repeating (the exact hit or the matched
+            # prior side-effect) rather than a re-estimated guess.
+            src = exact or next(
+                (c for c in candidates if c.call_id == decision.source_call_id), None
+            ) or (candidates[0] if candidates else None)
+            saved = _reuse_savings_from_source(src, call_type)
         else:
             # EXECUTE or COMPRESS_AND_EXECUTE: do the real work and measure.
             messages_in_tokens = input_tokens
@@ -322,6 +331,22 @@ class Redundant:
             model=model, max_tokens=1024, messages=messages,
         )
         return resp.choices[0].message.content or ""
+
+
+def _reuse_savings_from_source(src, call_type: CallType) -> dict:
+    """Savings credited when a call is reused/blocked instead of executed, based on
+    the *measured* metrics of the source call (a CallRecord or a Candidate carrying
+    indexed numbers). Falls back to assumed latency and zero cost when no source is
+    available, so the dashboard never invents a dollar figure it can't attribute to
+    a real prior call."""
+    if src is None:
+        return {"saved_cost_usd": 0.0,
+                "saved_latency_ms": default_latency_ms(call_type.value),
+                "saved_tokens": 0}
+    cost = getattr(src, "cost_usd", 0.0) or 0.0
+    latency = getattr(src, "latency_ms", 0) or default_latency_ms(call_type.value)
+    tokens = getattr(src, "input_tokens", 0) + getattr(src, "output_tokens", 0)
+    return savings_from_reuse(cost, latency, tokens)
 
 
 def _summary(decision: Decision, agent_id: str, tool_name: str, source: Optional[str]) -> str:

@@ -16,6 +16,7 @@ import asyncio
 import threading
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.concurrency import run_in_threadpool
@@ -35,19 +36,29 @@ from redundant import sentry_dispatch
 
 sentry_dispatch.init_sentry()
 
-try:
-    from redundant.redis_store import RedisStore
+# Built lazily on first use so importing this module never performs a blocking
+# Redis round trip (which would stall import and any tooling that imports the app).
+_store = None
 
-    _store = RedisStore(SETTINGS)
-    _store.ping()
-except Exception:
-    # Fall back to in-memory so the demo/UI still works offline.
-    from redundant.memory_store import InMemoryStore
 
-    _store = InMemoryStore(SETTINGS)
+def _build_store():
+    try:
+        from redundant.redis_store import RedisStore
+
+        store = RedisStore(SETTINGS)
+        store.ping()
+        return store
+    except Exception:
+        # Fall back to in-memory so the demo/UI still works offline.
+        from redundant.memory_store import InMemoryStore
+
+        return InMemoryStore(SETTINGS)
 
 
 def get_store():
+    global _store
+    if _store is None:
+        _store = _build_store()
     return _store
 
 
@@ -59,6 +70,26 @@ app.add_middleware(
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+# Trace files supplied via ?json_path= are confined to an allowlist of roots to
+# block path traversal / arbitrary file reads (e.g. ?json_path=/etc/passwd). The
+# backend dir holds bundled/recorded traces; the OS temp dir is where callers
+# (and tests) drop scratch traces. Relative paths resolve against the backend dir.
+import tempfile
+
+_TRACE_ROOT = Path(__file__).resolve().parent.parent
+_ALLOWED_TRACE_ROOTS = (_TRACE_ROOT, Path(tempfile.gettempdir()).resolve())
+
+
+def _safe_trace_path(json_path: str) -> str:
+    raw = Path(json_path)
+    resolved = (raw if raw.is_absolute() else _TRACE_ROOT / raw).resolve()
+    if not any(resolved.is_relative_to(root) for root in _ALLOWED_TRACE_ROOTS):
+        raise HTTPException(400, "json_path is outside the allowed trace directories")
+    if not resolved.is_file():
+        raise HTTPException(404, "trace file not found")
+    return str(resolved)
 
 
 class StartBody(BaseModel):
@@ -243,9 +274,11 @@ async def get_findings(run_id: str = "", json_path: str = ""):
       run_id    — read from Redis Stream trace:{run_id}
       json_path — path to a local frozen trace JSON (defaults to demo_trace.json)
     """
+    # Confine user-supplied trace paths before touching the filesystem.
+    safe_path = _safe_trace_path(json_path) if json_path else ""
     # Offload the blocking work (Redis/Sentry I/O + graph analysis) so it doesn't
     # stall the event loop.
-    return await run_in_threadpool(_compute_findings, run_id, json_path)
+    return await run_in_threadpool(_compute_findings, run_id, safe_path)
 
 
 @app.get("/findings/cache-lookup")
