@@ -16,27 +16,33 @@ from redundant import tools
 SOURCE = "https://example.com/agent-cost-optimization"
 
 
-def _fake_anthropic(settings: Settings):
-    """Deterministic offline LLM so the demo runs without an Anthropic key."""
+def _fake_openai(settings: Settings):
+    """Deterministic offline LLM so the demo runs without an OpenAI key."""
 
-    class _Block:
-        def __init__(self, text):
-            self.type = "text"
-            self.text = text
+    class _Message:
+        def __init__(self, content):
+            self.content = content
+
+    class _Choice:
+        def __init__(self, content):
+            self.message = _Message(content)
 
     class _Resp:
-        def __init__(self, text):
-            self.content = [_Block(text)]
+        def __init__(self, content):
+            self.choices = [_Choice(content)]
 
-    class _Msgs:
+    class _Completions:
         def create(self, model, messages, **kwargs):
             last = messages[-1]["content"] if messages else ""
             return _Resp(f"[report:{str(last)[:60]}]")
 
-    class _Client:
-        messages = _Msgs()
+    class _Chat:
+        completions = _Completions()
 
-    return _Client() if not settings.anthropic_api_key else None
+    class _Client:
+        chat = _Chat()
+
+    return _Client() if not settings.openai_api_key else None
 
 
 def run_demo_task(run_id: str, mode: str, store, settings: Settings = SETTINGS) -> None:
@@ -46,7 +52,7 @@ def run_demo_task(run_id: str, mode: str, store, settings: Settings = SETTINGS) 
     enabled = mode != "baseline"
     r = Redundant(
         run_id=run_id, store=store, settings=settings,
-        anthropic_client=_fake_anthropic(settings), enabled=enabled,
+        openai_client=_fake_openai(settings), enabled=enabled,
     )
 
     # 1. Research agent gathers sources.

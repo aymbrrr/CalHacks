@@ -25,14 +25,16 @@ class ModelPrice:
 
 
 MODEL_PRICING: dict[str, ModelPrice] = {
-    "claude-opus-4-8": ModelPrice(15.0, 75.0),
-    "claude-sonnet-4-6": ModelPrice(3.0, 15.0),
-    "claude-haiku-4-5": ModelPrice(0.80, 4.0),
-    # OpenAI chat models (may appear in ingested traces).
+    # OpenAI chat models — what redundant.llm() actually executes against.
     "gpt-4o": ModelPrice(5.0, 15.0),
     "gpt-4o-mini": ModelPrice(0.15, 0.6),
     # Embeddings (input only); output cost is 0.
     "text-embedding-3-small": ModelPrice(0.02, 0.0),
+    # Reference pricing only — for ingested traces that name these models. We
+    # never call them; kept so the dashboard can price third-party trace data.
+    "claude-opus-4-8": ModelPrice(15.0, 75.0),
+    "claude-sonnet-4-6": ModelPrice(3.0, 15.0),
+    "claude-haiku-4-5": ModelPrice(0.80, 4.0),
 }
 
 # Fallback assumed latency (ms) per executed call type, used to credit savings
@@ -44,8 +46,8 @@ DEFAULT_TOOL_LATENCY_MS = 1500
 @dataclass(frozen=True)
 class Settings:
     redis_url: str = field(default_factory=lambda: os.getenv("REDIS_URL", "redis://localhost:6379"))
+    # OpenAI — used for both embeddings and redundant.llm() executions.
     openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
-    anthropic_api_key: str = field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY", ""))
 
     # Sentry alert arm. Empty DSN → mock mode (SR-9), never crashes the pipeline.
     sentry_dsn: str = field(default_factory=lambda: os.getenv("SENTRY_DSN", ""))
@@ -55,7 +57,7 @@ class Settings:
     sentry_fatal_count: int = 20
     sentry_fatal_cost: float = 1.0
 
-    default_model: str = field(default_factory=lambda: os.getenv("REDUNDANT_DEFAULT_MODEL", "claude-haiku-4-5"))
+    default_model: str = field(default_factory=lambda: os.getenv("REDUNDANT_DEFAULT_MODEL", "gpt-4o-mini"))
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = 1536
 

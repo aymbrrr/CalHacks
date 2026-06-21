@@ -31,7 +31,7 @@ DEFAULT_FIXES = [
         fix_id="stable-prefix",
         title="Stabilize prompt prefix",
         description="Move timestamps/IDs out of the stable prompt prefix to hit the exact cache.",
-        sponsor_hook="Anthropic",
+        sponsor_hook="OpenAI",
         code_hint="# keep volatile fields in metadata, not the prompt",
     ),
     SuggestedFix(

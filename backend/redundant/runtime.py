@@ -51,9 +51,9 @@ def _now() -> str:
 SPONSOR_HOOKS_BY_DECISION = {
     Decision.EXACT_REUSE: ["Redis"],
     Decision.SEMANTIC_REUSE: ["Redis", "Terac"],
-    Decision.COMPRESS_AND_EXECUTE: ["Token Company", "Anthropic"],
+    Decision.COMPRESS_AND_EXECUTE: ["Token Company", "OpenAI"],
     Decision.BLOCK_OR_WARN: ["Sentry"],
-    Decision.EXECUTE: ["Anthropic"],
+    Decision.EXECUTE: ["OpenAI"],
 }
 
 
@@ -65,7 +65,7 @@ class Redundant:
         settings: Settings = SETTINGS,
         verifier: Verifier | None = None,
         compressor: Compressor | None = None,
-        anthropic_client: Any | None = None,
+        openai_client: Any | None = None,
         enabled: bool = True,
     ):
         self.run_id = run_id
@@ -73,7 +73,7 @@ class Redundant:
         self.store = store or RedisStore(settings)
         self.verifier = verifier or ThresholdVerifier(settings)
         self.compressor = compressor or PassthroughCompressor()
-        self._anthropic = anthropic_client
+        self._openai = openai_client
         # When disabled (baseline mode) the firewall always executes, so the UI
         # can contrast raw spend against the Redundant-enabled run.
         self.enabled = enabled
@@ -127,7 +127,7 @@ class Redundant:
             normalized=normalized,
             input_tokens=in_tokens,
             state_fingerprint=(metadata or {}).get("state_fingerprint"),
-            execute=lambda msgs=messages: self._call_anthropic(msgs, model),
+            execute=lambda msgs=messages: self._call_openai(msgs, model),
             model=model,
             compress_messages=messages,
         )
@@ -261,7 +261,7 @@ class Redundant:
                 comp = self.compressor.compress(compress_messages)
                 messages_in_tokens = comp.tokens_after
                 saved["saved_tokens"] += comp.saved_tokens
-                exec_fn = lambda msgs=comp.messages: self._call_anthropic(msgs, model or self.s.default_model)
+                exec_fn = lambda msgs=comp.messages: self._call_openai(msgs, model or self.s.default_model)
             start = datetime.now(timezone.utc)
             output = exec_fn()
             latency_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000) or \
@@ -313,16 +313,15 @@ class Redundant:
         event._output = output
         return event
 
-    def _call_anthropic(self, messages: list[dict[str, Any]], model: str) -> str:
-        if self._anthropic is None:
-            from anthropic import Anthropic
+    def _call_openai(self, messages: list[dict[str, Any]], model: str) -> str:
+        if self._openai is None:
+            from openai import OpenAI
 
-            self._anthropic = Anthropic(api_key=self.s.anthropic_api_key)
-        resp = self._anthropic.messages.create(
+            self._openai = OpenAI(api_key=self.s.openai_api_key)
+        resp = self._openai.chat.completions.create(
             model=model, max_tokens=1024, messages=messages,
         )
-        parts = [b.text for b in resp.content if getattr(b, "type", "") == "text"]
-        return "\n".join(parts)
+        return resp.choices[0].message.content or ""
 
 
 def _summary(decision: Decision, agent_id: str, tool_name: str, source: Optional[str]) -> str:

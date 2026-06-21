@@ -5,7 +5,7 @@ Public entrypoints::
     from redundant.runtime import Redundant
     redundant = Redundant(run_id="demo-run-001")
     redundant.tool(agent_id="research-agent", tool_name="search_docs", args={...})
-    redundant.llm(agent_id="report-agent", messages=[...], model="claude-haiku-4-5")
+    redundant.llm(agent_id="report-agent", messages=[...], model="gpt-4o-mini")
 """
 
 from redundant.schema import (

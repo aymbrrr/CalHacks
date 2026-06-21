@@ -8,7 +8,7 @@ from .scripted_tools import TOOL_REGISTRY
 from .trace_writer import TraceWriter, input_hash
 
 
-LLM_MODEL = "claude-3-5-sonnet-demo"
+LLM_MODEL = "gpt-4o-mini-demo"
 TOOL_MODEL = "scripted-tool-v1"
 
 
@@ -96,7 +96,7 @@ class RedundantRuntime:
             cacheability="state_bound",
             summary=f"{agent_name} generated {purpose.replace('_', ' ')}.",
             explanation="LLM calls are recorded through redundant.llm for attribution.",
-            sponsor_hooks=["Band", "Anthropic", "Redis Streams"],
+            sponsor_hooks=["Band", "OpenAI", "Redis Streams"],
         )
         return WrappedResult(output=output, decision="EXECUTE", span_id=span["span_id"])
 

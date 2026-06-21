@@ -40,7 +40,7 @@ def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
     price = MODEL_PRICING.get(model)
     if price is None:
         # Unknown model: assume mid-tier so the demo still shows a number.
-        price = MODEL_PRICING["claude-sonnet-4-6"]
+        price = MODEL_PRICING["gpt-4o"]
     return round(
         input_tokens / 1_000_000 * price.input_per_mtok
         + output_tokens / 1_000_000 * price.output_per_mtok,

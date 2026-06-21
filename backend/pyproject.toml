@@ -12,7 +12,6 @@ dependencies = [
     "uvicorn[standard]>=0.27",
     "redis>=5.0",
     "openai>=1.20",
-    "anthropic>=0.25",
     "pydantic>=2.6",
     "sse-starlette>=2.0",
     "python-dotenv>=1.0",

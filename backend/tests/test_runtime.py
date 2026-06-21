@@ -72,22 +72,27 @@ def test_semantic_reuse(monkeypatch):
 
 
 def test_llm_execute_with_stub_client():
-    class _Block:
-        type = "text"
-        text = "stubbed answer"
+    class _Message:
+        content = "stubbed answer"
+
+    class _Choice:
+        message = _Message()
 
     class _Resp:
-        content = [_Block()]
+        choices = [_Choice()]
 
-    class _Msgs:
+    class _Completions:
         def create(self, **kwargs):
             return _Resp()
 
-    class _Client:
-        messages = _Msgs()
+    class _Chat:
+        completions = _Completions()
 
-    r = Redundant(run_id="run-llm", store=InMemoryStore(), anthropic_client=_Client())
-    e = r.llm("report-agent", [{"role": "user", "content": "summarize"}], model="claude-haiku-4-5")
+    class _Client:
+        chat = _Chat()
+
+    r = Redundant(run_id="run-llm", store=InMemoryStore(), openai_client=_Client())
+    e = r.llm("report-agent", [{"role": "user", "content": "summarize"}], model="gpt-4o-mini")
     assert e.decision == Decision.EXECUTE
     assert e.output == "stubbed answer"
     assert e.actual_cost_usd > 0.0

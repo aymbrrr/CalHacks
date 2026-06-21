@@ -81,7 +81,7 @@ class RedisStore:
     def ensure_index(self) -> None:
         """Create the RediSearch vector index if it does not exist."""
         from redis.commands.search.field import TagField, VectorField, TextField
-        from redis.commands.search.indexDefinition import IndexDefinition, IndexType
+        from redis.commands.search.index_definition import IndexDefinition, IndexType
 
         try:
             self.r.ft(self.index_name).info()

@@ -28,8 +28,8 @@ def test_estimate_cost_known_model():
 
 def test_estimate_cost_unknown_model_falls_back():
     cost = estimate_cost("some-future-model", 1_000_000, 0)
-    # falls back to sonnet input pricing ($3/Mtok).
-    assert cost == 3.0
+    # falls back to gpt-4o input pricing ($5/Mtok).
+    assert cost == 5.0
 
 
 def test_savings_from_reuse():
