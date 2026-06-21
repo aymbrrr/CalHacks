@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getFindings, getReport, listRuns, rerun } from "./api/client";
+import { getFindings, getReport, listRuns, rerun, startRun, streamRun } from "./api/client";
 import { DevInspector } from "./components/DevInspector";
 import { Flamegraph } from "./components/Flamegraph";
 import { HeadlineBanner } from "./components/HeadlineBanner";
@@ -25,6 +25,8 @@ export function App() {
   const [expandedSpan, setExpandedSpan] = useState<string | null>(null);
   const [scrubVal, setScrubVal] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [runStatus, setRunStatus] = useState<string>("idle");
+  const [liveEventCount, setLiveEventCount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
 
   // Monotonic request id for findings/report fetches. A stale response (older
@@ -81,6 +83,28 @@ export function App() {
   useEffect(() => {
     setScrubVal(null);
   }, [mode]);
+
+  const handleStartRun = async () => {
+    try {
+      setRunStatus("running");
+      setLiveEventCount(0);
+      const newRun = await startRun("Band multi-agent demo", "band");
+      setRuns((prev) => [newRun, ...prev]);
+      setSelectedRun(newRun.run_id);
+      const cleanup = streamRun(
+        newRun.run_id,
+        () => setLiveEventCount((n) => n + 1),
+        (completedRun) => {
+          setRunStatus(completedRun.status);
+          getFindings(completedRun.run_id).then(setData).catch(() => {});
+          getReport(completedRun.run_id).then(setReport).catch(() => {});
+          cleanup();
+        }
+      );
+    } catch {
+      setRunStatus("failed");
+    }
+  };
 
   const onRerun = async () => {
     if (!data) return;
@@ -141,8 +165,17 @@ export function App() {
         onSelectRun={setSelectedRun}
         mode={mode}
         onSelectMode={setMode}
-        streamLabel={loading ? "loading…" : mode === "replay" ? "replay" : "trace loaded"}
-        streamGreen={!loading && mode !== "replay"}
+        onStartRun={handleStartRun}
+        streamLabel={
+          runStatus === "running"
+            ? `live · ${liveEventCount} events`
+            : loading
+            ? "loading…"
+            : mode === "replay"
+            ? "replay"
+            : "trace loaded"
+        }
+        streamGreen={runStatus === "running" || (!loading && mode !== "replay")}
       />
 
       <HeadlineBanner

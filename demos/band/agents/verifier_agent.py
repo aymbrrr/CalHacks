@@ -34,7 +34,7 @@ class VerifierAgent:
 
         room.post(
             self.agent_id,
-            "RUNAWAY_LOOP_ALERT: verify_source repeated 12 times without convergence.",
+            "RUNAWAY_LOOP_DETECTED: verify_source repeated 12 times without convergence.",
             references=[last_result.span_id] if last_result else [],
         )
         runtime.writer.finish_agent_span(span_id, "Emitted flaky verifier loop status.")

@@ -9,6 +9,7 @@ interface Props {
   onSelectMode: (m: "batch" | "replay") => void;
   streamLabel: string;
   streamGreen: boolean;
+  onStartRun?: () => void;
 }
 
 const selectStyle: React.CSSProperties = {
@@ -29,7 +30,7 @@ const selectStyle: React.CSSProperties = {
   backgroundPosition: "right 10px center",
 };
 
-export function TopBar({ runs, selectedRun, onSelectRun, mode, onSelectMode, streamLabel, streamGreen }: Props) {
+export function TopBar({ runs, selectedRun, onSelectRun, mode, onSelectMode, streamLabel, streamGreen, onStartRun }: Props) {
   return (
     <div
       style={{
@@ -57,6 +58,11 @@ export function TopBar({ runs, selectedRun, onSelectRun, mode, onSelectMode, str
         </div>
       </div>
       <div style={{ flex: 1 }} />
+      {onStartRun && (
+        <button onClick={onStartRun} style={{ ...selectStyle, padding: "5px 10px", border: `1px solid ${theme.border}` }}>
+          ▶ run
+        </button>
+      )}
       <span style={{ fontSize: 11, color: "var(--gt-dim)" }}>run</span>
       <select style={selectStyle} value={selectedRun} onChange={(e) => onSelectRun(e.target.value)}>
         {runs.length === 0 && <option value={selectedRun}>{selectedRun || "—"}</option>}
